@@ -6,199 +6,99 @@
     <title>Last Drive!</title>
     <style>
         body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #c2b280;
-            font-family: 'Times New Roman', serif;
-            touch-action: none;
+            margin: 0; padding: 0; overflow: hidden;
+            background: #c2b280; font-family: 'Times New Roman', serif;
+            touch-action: none; width: 100vw; height: 100vh;
         }
+        canvas { display: block; width: 100vw; height: 100vh; }
 
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
+        /* PORTRAIT WARNING */
+        #portraitWarning {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; color: white; z-index: 10000;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        @media screen and (orientation: portrait) {
+            #portraitWarning { display: flex; }
         }
 
         /* HUD */
         #hud {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0,0,0,0.85);
-            padding: 12px;
-            border-radius: 5px;
-            z-index: 10;
-            border: 1px solid #444;
-            font-family: monospace;
-            font-size: 14px;
+            position: fixed; top: 10px; left: 10px;
+            color: white; background: rgba(0,0,0,0.85);
+            padding: 12px; border-radius: 5px; z-index: 10;
+            border: 1px solid #444; font-family: monospace; font-size: 14px;
             pointer-events: none;
         }
-
-        #adminAccess {
-            pointer-events: auto;
-            margin-top: 5px;
-            color: #666;
-            cursor: pointer;
-            font-size: 10px;
-            text-decoration: underline;
-        }
-
-        #forceAudioBtn {
-            pointer-events: auto;
-            background: #444;
-            color: #0f0;
-            border: 1px solid #0f0;
-            font-size: 10px;
-            padding: 4px;
-            cursor: pointer;
-            margin-top: 5px;
-            width: 100%;
-        }
+        #adminAccess { pointer-events: auto; margin-top: 5px; color: #666; cursor: pointer; font-size: 10px; text-decoration: underline; }
 
         /* TOUCH CONTROLS */
-        .touch-btn {
-            position: fixed;
-            width: 65px;
-            height: 65px;
-            background: rgba(255,255,255,0.15);
-            border: 2px solid rgba(255,255,255,0.4);
-            border-radius: 50%;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            user-select: none;
-            z-index: 50;
-            font-family: Arial;
-            font-size: 18px;
+        .controls-container {
+            position: fixed; bottom: 15px; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 50px;
+            box-sizing: border-box; pointer-events: none; z-index: 50;
         }
-
-        .touch-btn:active { background: rgba(255,255,255,0.4); }
-
-        #btnUp { bottom: 160px; left: 80px; }
-        #btnDown { bottom: 20px; left: 80px; }
-        #btnLeft { bottom: 90px; left: 10px; }
-        #btnRight { bottom: 90px; left: 150px; }
-        #btnShoot { bottom: 110px; right: 20px; background: rgba(255,0,0,0.3); width: 85px; height: 85px; }
-        #btnE { bottom: 210px; right: 20px; width: 55px; height: 55px; }
-        #btnF { bottom: 210px; right: 85px; width: 55px; height: 55px; }
-        #btnG { bottom: 210px; right: 150px; width: 55px; height: 55px; }
+        .touch-group { display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+        .touch-btn {
+            width: 70px; height: 70px; background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.4); border-radius: 50%;
+            color: white; display: flex; align-items: center; justify-content: center;
+            margin: 5px; user-select: none; font-weight: bold; font-size: 20px;
+        }
+        #btnShoot { width: 90px; height: 90px; background: rgba(255,0,0,0.3); border-color: red; }
 
         /* SCREENS */
-        #startScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 300;
-            cursor: pointer;
-            text-align: center;
-            flex-direction: column;
+        #startScreen, #pauseOverlay, .end-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; z-index: 300; text-align: center;
         }
-
-        .end-screen {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: black;
-            color: white;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            text-align: center;
-        }
-
+        #startScreen { background: #000; color: white; cursor: pointer; }
+        #pauseOverlay { background: rgba(0,0,0,0.85); display: none; z-index: 400; color: white; }
+        .end-screen { background: black; color: white; display: none; z-index: 500; }
         #deathScreen h1 { color: #b30000; font-size: 70px; margin: 0; font-family: 'Georgia', serif; }
         #winScreen h1 { color: #00b300; font-size: 70px; margin: 0; }
 
         /* ADMIN PANEL */
         #adminPanel {
-            display: none;
-            position: fixed;
-            right: 10px;
-            top: 10px;
-            width: 220px;
-            background: #1b1b1b;
-            border: 2px solid #333;
-            color: white;
-            z-index: 200;
+            display: none; position: fixed; right: 10px; top: 10px;
+            width: 220px; background: #1b1b1b; border: 2px solid #333;
+            color: white; z-index: 200;
         }
-
-        #pinBox {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #111;
-            padding: 20px;
-            border: 2px solid #f1c40f;
-            z-index: 1000;
-            text-align: center;
-            color: white;
-        }
-
-        #pinBox input {
-            background: #333;
-            border: 1px solid #666;
-            color: white;
-            padding: 8px;
-            margin: 10px 0;
-            width: 100px;
-            text-align: center;
-        }
-
         .admin-btn {
-            width: 100%;
-            padding: 10px;
-            margin: 2px 0;
-            background: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            text-align: left;
+            width: 100%; padding: 10px; margin: 2px 0;
+            background: #333; color: white; border: none; cursor: pointer;
+            font-size: 12px; text-align: left;
         }
         .admin-btn.active { background: #0066cc; }
 
+        #pinBox {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background: #111; padding: 20px;
+            border: 2px solid #f1c40f; z-index: 1000; text-align: center; color: white;
+        }
+        #pinField { background: #333; border: 1px solid #666; color: white; padding: 8px; margin: 10px; width: 100px; text-align: center; }
+
         #prompt {
-            position: fixed;
-            bottom: 30%;
-            left: 50%;
-            transform: translateX(-50%);
-            display: none;
-            background: rgba(0,0,0,0.9);
-            color: yellow;
-            padding: 15px;
-            font-weight: bold;
-            z-index: 60;
-            text-align: center;
-            border: 2px solid white;
+            position: fixed; bottom: 35%; left: 50%; transform: translateX(-50%);
+            display: none; background: rgba(0,0,0,0.9); color: yellow;
+            padding: 15px; border: 2px solid white; z-index: 60; font-weight: bold; text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <!-- AUDIO SYSTEM -->
+    <div id="portraitWarning">
+        <h1>PLEASE ROTATE DEVICE</h1>
+        <p>Landscape mode required.</p>
+    </div>
+
     <audio id="sndBallad" src="./ballad.mp3" loop preload="auto"></audio>
     <audio id="sndSpaghetti" src="./spaghetti.mp3" loop preload="auto"></audio>
     <audio id="sndAction" src="./action.mp3" loop preload="auto"></audio>
+    <audio id="sndOutlaw" src="./outlaw.mp3" loop preload="auto"></audio>
     <audio id="sndBridgeBattle" src="./Battleatbridge.mp3" loop preload="auto"></audio>
 
-    <!-- MAIN MENU -->
     <div id="startScreen" onclick="startGame()">
         <div style="border: 3px solid white; padding: 40px; border-radius: 20px; background: #111;">
             <span style="font-size: 60px; font-weight: bold; color: #f1c40f; font-family: Georgia;">Last Drive!</span><br><br>
@@ -206,13 +106,17 @@
         </div>
     </div>
 
+    <div id="pauseOverlay">
+        <h1>PAUSED</h1>
+        <button onclick="togglePause()" style="padding: 10px 30px; cursor: pointer;">RESUME</button>
+    </div>
+
     <div id="hud">
-        <div>$ <span id="money">0</span> | Ammo: <span id="ammo">30</span></div>
-        <div>Gold: <span id="goldDisp">0</span> | Silver: <span id="silverDisp">0</span></div>
+        <div>$ <span id="money">0</span> | Ammo: <span id="ammo">100</span></div>
+        <div>T-Ammo: <span id="tAmmo">0</span> | Gold: <span id="goldDisp">0</span> | Silver: <span id="silverDisp">0</span></div>
         <div>Armor: <span id="armorDisp">None</span></div>
         <div>Dist: <span id="dist">0</span>m / 10000m</div>
         <div id="adminAccess" onclick="showPinBox()">[ Admin Access ]</div>
-        <button id="forceAudioBtn" onclick="forceUnlockAudio()">FORCE AUDIO RESTART</button>
         <div id="timer-ui" style="display:none; color:red">BRIDGE: <span id="timeLeft">4:00</span></div>
     </div>
 
@@ -221,27 +125,6 @@
         <input type="password" id="pinField" maxlength="4"><br>
         <button onclick="checkPin()">SUBMIT</button>
         <button onclick="document.getElementById('pinBox').style.display='none'">CANCEL</button>
-    </div>
-
-    <div class="touch-btn" id="btnUp">W</div>
-    <div class="touch-btn" id="btnDown">S</div>
-    <div class="touch-btn" id="btnLeft">A</div>
-    <div class="touch-btn" id="btnRight">D</div>
-    <div class="touch-btn" id="btnShoot">FIRE</div>
-    <div class="touch-btn" id="btnE">E</div>
-    <div class="touch-btn" id="btnF">F</div>
-    <div class="touch-btn" id="btnG">G</div>
-
-    <div id="deathScreen" class="end-screen">
-        <h1>Everyone died...</h1>
-        <p style="font-size: 24px;">Final Distance: <span class="finalDist">0</span> m</p>
-        <p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p>
-    </div>
-
-    <div id="winScreen" class="end-screen">
-        <h1>You Escaped!</h1>
-        <p style="font-size: 24px;">Final Distance: 10000 m</p>
-        <p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p>
     </div>
 
     <div id="adminPanel">
@@ -256,6 +139,29 @@
         <button class="admin-btn" onclick="player.y = -98500">Teleport to End</button>
     </div>
 
+    <div class="controls-container">
+        <div class="touch-group">
+            <div class="touch-btn" id="btnUp">W</div>
+            <div style="display:flex"><div class="touch-btn" id="btnLeft">A</div><div class="touch-btn" id="btnDown">S</div><div class="touch-btn" id="btnRight">D</div></div>
+        </div>
+        <div class="touch-group">
+            <div style="display:flex"><div class="touch-btn" id="btnE">E</div><div class="touch-btn" id="btnF">F</div><div class="touch-btn" id="btnG">G</div></div>
+            <div class="touch-btn" id="btnShoot">FIRE</div>
+        </div>
+    </div>
+
+    <div id="deathScreen" class="end-screen">
+        <h1>Everyone died...</h1>
+        <p style="font-size: 24px;">Final Distance: <span class="finalDist">0</span> m</p>
+        <p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p>
+    </div>
+
+    <div id="winScreen" class="end-screen">
+        <h1>You Escaped!</h1>
+        <p style="font-size: 24px;">Final Distance: 10000 m</p>
+        <p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p>
+    </div>
+
     <div id="prompt">INTERACT</div>
     <canvas id="gameCanvas"></canvas>
 
@@ -267,84 +173,97 @@
             ballad: document.getElementById('sndBallad'),
             spaghetti: document.getElementById('sndSpaghetti'),
             action: document.getElementById('sndAction'),
+            outlaw: document.getElementById('sndOutlaw'),
             bridge: document.getElementById('sndBridgeBattle')
         };
-        let audioUnlocked = false;
-        let screenState = "MENU";
-        let isBridgeBattleMusic = false;
 
-        function forceUnlockAudio() {
-            audioUnlocked = true;
-            for (let key in audio) {
-                audio[key].volume = 0;
-                let promise = audio[key].play();
-                if (promise !== undefined) {
-                    promise.then(() => { if (key !== "spaghetti") audio[key].pause(); }).catch(e => {});
-                }
-            }
-        }
+        let gameActive = false, isPaused = false, audioUnlocked = false;
+        let god = false, infCash = false, infAmmo = false, fast = false;
+        
+        let player = { 
+            x: 0, y: 0, angle: 0, speed: 0, hp: 100, 
+            money: 50, ammo: 100, gold: 0, silver: 0, 
+            cooldown: 0, 
+            hasMetal: false, metalHP: 100, 
+            hasWire: false, wireHP: 50, 
+            hasRadar: false, faction: 'player' 
+        };
+
+        let enemies = [], bandits = [], bullets = [], guards = [], buildings = [], outposts = [];
+        let bridge = { lowering: false, time: 240, ready: false, progress: 0 };
+        let crank = { x: 350, y: -99000, rotated: false }; 
+        let turret = { active: false, ammo: 0, cooldown: 0 };
+        let screenState = "MENU", isBridgeBattleMusic = false;
+        let lastHasEnemies = false, lastHasBandits = false;
+        let lastBanditSpawn = 0;
 
         function startGame() {
-            forceUnlockAudio();
+            audioUnlocked = true;
+            for (let k in audio) { audio[k].play(); audio[k].volume = 0; }
             document.getElementById('startScreen').style.display = 'none';
-            screenState = "PLAYING";
-            gameActive = true;
+            screenState = "PLAYING"; gameActive = true;
+        }
+
+        function togglePause() {
+            if (screenState !== "PLAYING") return;
+            isPaused = !isPaused;
+            document.getElementById('pauseOverlay').style.display = isPaused ? 'flex' : 'none';
         }
 
         function updateMusic() {
             if (!audioUnlocked) return;
-            let targetSpaghetti = 0, targetAction = 0, targetBallad = 0, targetBridge = 0;
-
-            if (screenState === "MENU") {
-                targetSpaghetti = 0.5;
-            } else if (screenState === "PLAYING") {
+            let target = { spaghetti: 0, action: 0, outlaw: 0, ballad: 0, bridge: 0 };
+            
+            if (screenState === "PLAYING" && !isPaused) {
                 if (isBridgeBattleMusic) {
-                    targetBridge = 0.7; // Switch to the epic bridge track
+                    target.bridge = 0.7;
                 } else {
-                    let nearby = enemies.filter(e => Math.hypot(e.x - player.x, e.y - player.y) < 800).length;
-                    if (nearby >= 1) { targetAction = 0.6; targetSpaghetti = 0; }
-                    else { targetAction = 0; targetSpaghetti = 0.5; }
+                    let hasE = enemies.some(e => Math.hypot(e.x - player.x, e.y - player.y) < 800);
+                    let hasB = bandits.some(b => Math.hypot(b.x - player.x, b.y - player.y) < 800);
+
+                    if (hasB) {
+                        target.outlaw = 0.7;
+                        if (!lastHasBandits) audio.outlaw.currentTime = 0; 
+                    } else if (hasE) {
+                        target.action = 0.7;
+                        if (!lastHasEnemies) audio.action.currentTime = 0; 
+                    } else {
+                        target.spaghetti = 0.5;
+                    }
+                    lastHasEnemies = hasE;
+                    lastHasBandits = hasB;
                 }
             } else if (screenState === "END") {
-                targetBallad = 0.6;
+                target.ballad = 0.6;
             }
 
-            fadeTrack(audio.spaghetti, targetSpaghetti);
-            fadeTrack(audio.action, targetAction);
-            fadeTrack(audio.ballad, targetBallad);
-            fadeTrack(audio.bridge, targetBridge);
+            for (let k in audio) fadeTrack(audio[k], target[k], (k !== 'spaghetti'));
         }
 
-        function fadeTrack(track, target) {
-            if (target > 0 && track.paused) track.play().catch(() => {});
+        function fadeTrack(track, target, shouldReset) {
             let step = 0.01;
             if (track.volume < target) track.volume = Math.min(track.volume + step, target);
-            else if (track.volume > target) track.volume = Math.max(track.volume - step, 0);
-            if (track.volume <= 0 && !track.paused && target === 0) track.pause();
+            else if (track.volume > target) {
+                track.volume = Math.max(track.volume - step, 0);
+                if (track.volume <= 0 && shouldReset) track.currentTime = 0;
+            }
         }
-
-        let gameActive = false;
-        let god = false, infCash = false, infAmmo = false, fast = false;
-        let player = { x: 0, y: 0, angle: 0, speed: 0, hp: 100, money: 50, ammo: 30, gold: 0, silver: 0, cooldown: 0, hasMetal: false, hasWire: false };
-        let enemies = [], bullets = [], guards = [], buildings = [], outposts = [];
-        let bridge = { lowering: false, time: 240, ready: false, progress: 0 };
-        let crank = { x: 350, y: -99000, rotated: false };
-        let turret = { active: false, ammo: 0, cooldown: 0 };
 
         const keys = {};
-        window.addEventListener("keydown", e => keys[e.code] = true);
+        window.addEventListener("keydown", e => { if(e.code==="Escape") togglePause(); keys[e.code] = true; });
         window.addEventListener("keyup", e => keys[e.code] = false);
 
-        function setupTouch(id, key) {
+        function setupTouch(id, k) {
             const el = document.getElementById(id);
-            el.addEventListener("pointerdown", e => { e.preventDefault(); keys[key] = true; });
-            el.addEventListener("pointerup", e => { e.preventDefault(); keys[key] = false; });
+            if(!el) return;
+            el.addEventListener("pointerdown", e => { e.preventDefault(); keys[k] = true; });
+            el.addEventListener("pointerup", e => { e.preventDefault(); keys[k] = false; });
         }
-        setupTouch("btnUp","KeyW"); setupTouch("btnDown","KeyS"); setupTouch("btnLeft","KeyA"); setupTouch("btnRight","KeyD"); setupTouch("btnShoot","Space"); setupTouch("btnE","KeyE"); setupTouch("btnF","KeyF"); setupTouch("btnG","KeyG");
+        setupTouch("btnUp","KeyW"); setupTouch("btnDown","KeyS"); setupTouch("btnLeft","KeyA"); setupTouch("btnRight","KeyD"); 
+        setupTouch("btnShoot","Space"); setupTouch("btnE","KeyE"); setupTouch("btnF","KeyF"); setupTouch("btnG","KeyG");
 
         function initWorld() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             const segments = [0, -30000, -60000, -90000];
             for (let i = 0; i < 3; i++) {
                 for (let j = 0; j < 2; j++) {
@@ -361,52 +280,85 @@
         }
         initWorld();
 
-        function spawnTownEnemies(bx, by) {
-            for (let i = 0; i < 7; i++) {
-                enemies.push({ x: bx + (Math.random() - 0.5) * 400, y: by + (Math.random() - 0.5) * 400, angle: Math.PI, speed: 3.5 + Math.random() * 2, hp: 100 });
+        function spawnGroup(bx, by, type) {
+            let count = Math.floor(Math.random() * 7) + 1;
+            for (let i = 0; i < count; i++) {
+                enemies.push({ x: bx+(Math.random()-0.5)*400, y: by+(Math.random()-0.5)*400, angle: Math.PI, speed: 3.5+Math.random()*2, hp: 100, cooldown: 0, faction: 'red' });
             }
+        }
+        function spawnBandits(bx, by) {
+            let count = Math.floor(Math.random() * 7) + 1;
+            for (let i = 0; i < count; i++) {
+                bandits.push({ x: bx+(Math.random()-0.5)*400, y: by+(Math.random()-0.5)*400, angle: Math.PI, speed: 4, hp: 100, cooldown: 0, faction: 'blue' });
+            }
+        }
+
+        function applyDamage(target, amount) {
+            if (target.faction === 'player') {
+                if (god) return;
+                let final = amount;
+                if (player.hasMetal) { 
+                    final *= 0.7; player.metalHP -= amount; 
+                    if(player.metalHP <= 0) player.hasMetal = false; 
+                }
+                player.hp -= final;
+            } else { target.hp -= amount; }
+        }
+
+        function getTarget(me, myFaction) {
+            let pool = [{x:player.x, y:player.y, faction:'player', hp:player.hp}, ...enemies, ...bandits, ...guards];
+            let targets = pool.filter(p => {
+                if (myFaction === 'red') return p.faction !== 'red';
+                if (myFaction === 'blue') return p.faction !== 'blue';
+                if (myFaction === 'guard') return p.faction !== 'guard' && p.faction !== 'player';
+                return false;
+            });
+            if(targets.length === 0) return null;
+            // Sorting ensures it returns the absolute nearest
+            return targets.sort((a,b) => Math.hypot(me.x-a.x, me.y-a.y) - Math.hypot(me.x-b.x, me.y-b.y))[0];
         }
 
         function update() {
             updateMusic();
-            if (!gameActive) return;
+            if (!gameActive || isPaused) return;
 
-            let accMult = fast ? 2.5 : 0.28;
-            let turnMult = fast ? 0.12 : 0.06;
+            let turnMult = 0.06;
             if (keys["KeyA"]) player.angle -= turnMult;
             if (keys["KeyD"]) player.angle += turnMult;
-            if (keys["KeyW"]) player.speed += accMult;
-            if (keys["KeyS"]) player.speed -= accMult;
+            if (keys["KeyW"]) player.speed += (fast ? 1.0 : 0.32);
+            if (keys["KeyS"]) player.speed -= (fast ? 1.0 : 0.32);
             player.speed *= 0.96;
             player.x += Math.sin(player.angle) * player.speed;
             player.y -= Math.cos(player.angle) * player.speed;
 
+            if (player.y < -99550 && player.y > -100500) {
+                if (Math.abs(player.x) > 300 && !(bridge.ready && Math.abs(player.x) < 200) && !god) triggerEnd("death");
+            }
+
+            let dist = Math.abs(player.y);
+            if (dist > lastBanditSpawn + 2000) { 
+                if (Math.random() < 0.35) spawnBandits(player.x, player.y - 1200);
+                lastBanditSpawn = dist;
+            }
+
             if (keys["Space"] && (player.ammo > 0 || infAmmo) && player.cooldown <= 0) {
-                bullets.push({ x: player.x, y: player.y, angle: player.angle, speed: 26, owner: 'p' });
-                if (!infAmmo) player.ammo--;
-                player.cooldown = 12;
+                bullets.push({ x: player.x, y: player.y, angle: player.angle, speed: 28, owner: 'player' });
+                if (!infAmmo) player.ammo--; player.cooldown = 12;
             }
             if (player.cooldown > 0) player.cooldown--;
 
-            let near = false;
+            let interactNear = false;
             buildings.forEach(b => {
                 let d = Math.hypot(player.x - b.x, player.y - b.y);
-                if (d < 1200 && (b.type === "BANK" || b.type === "GUNSMITH_TOWN") && b.spawned === false) {
-                    spawnTownEnemies(b.x, b.y); b.spawned = true; 
-                }
+                if (d < 1200 && (b.type === "BANK" || b.type === "GUNSMITH_TOWN") && !b.spawned) { spawnGroup(b.x, b.y, "red"); b.spawned = true; }
                 if (d < 220) {
-                    near = true;
-                    let el = document.getElementById('prompt');
+                    interactNear = true; let el = document.getElementById('prompt');
                     if (b.type === "BANK" && !b.looted) {
                         el.innerText = "ROB BANK [E]";
                         if (keys["KeyE"]) { player.gold++; player.silver += 2; b.looted = true; keys["KeyE"] = false; }
                     } else if (b.type === "GUNSMITH_TOWN" && !b.looted) {
                         el.innerText = "LOOT GUNSMITH [E]";
-                        if (keys["KeyE"]) {
-                            player.ammo += Math.floor(Math.random() * 10) + 1;
-                            player.money += Math.floor(Math.random() * 10) + 1;
-                            b.looted = true; keys["KeyE"] = false;
-                        }
+                        if (keys["KeyE"]) { player.ammo += Math.floor(Math.random() * 10) + 1; player.money += Math.floor(Math.random() * 10) + 1; b.looted = true; keys["KeyE"] = false; }
                     } else if (b.type === "GUNSMITH_OUT") {
                         el.innerText = "AMMO $15 [E] | TURRET $100 [F] | T-AMMO $25 [G]";
                         if (keys["KeyE"] && (player.money >= 15 || infCash)) { if (!infCash) player.money -= 15; player.ammo += 24; keys["KeyE"] = false; }
@@ -416,126 +368,176 @@
                         el.innerText = "SELL LOOT [E]";
                         if (keys["KeyE"]) { player.money += player.gold * 50 + player.silver * 25; player.gold = 0; player.silver = 0; keys["KeyE"] = false; }
                     } else if (b.type === "STORE") {
-                        el.innerText = "METAL $20 [E] | WIRE $15 [F]";
-                        if (keys["KeyE"] && !player.hasMetal && (player.money >= 20 || infCash)) { if (!infCash) player.money -= 20; player.hasMetal = true; keys["KeyE"] = false; }
-                        if (keys["KeyF"] && !player.hasWire && (player.money >= 15 || infCash)) { if (!infCash) player.money -= 15; player.hasWire = true; keys["KeyF"] = false; }
+                        el.innerText = "METAL $20 [E] | WIRE $15 [F] | RADAR $30 [G]";
+                        if (keys["KeyE"] && !player.hasMetal && (player.money >= 20 || infCash)) { if (!infCash) player.money -= 20; player.hasMetal = true; player.metalHP = 100; keys["KeyE"] = false; }
+                        if (keys["KeyF"] && !player.hasWire && (player.money >= 15 || infCash)) { if (!infCash) player.money -= 15; player.hasWire = true; player.wireHP = 50; keys["KeyF"] = false; }
+                        if (keys["KeyG"] && !player.hasRadar && (player.money >= 30 || infCash)) { if (!infCash) player.money -= 30; player.hasRadar = true; keys["KeyG"] = false; }
                     }
                 }
             });
 
             if (Math.hypot(player.x - crank.x, player.y - crank.y) < 200 && !crank.rotated) {
-                near = true; document.getElementById('prompt').innerText = "ROTATE CRANK [E]";
+                interactNear = true; document.getElementById('prompt').innerText = "ROTATE CRANK [E]";
                 if (keys["KeyE"]) { 
-                    crank.rotated = true; 
-                    bridge.lowering = true; 
-                    isBridgeBattleMusic = true; // TRIGGER BATTLE MUSIC
-                    startBridge(); 
-                    keys["KeyE"] = false; 
+                    crank.rotated = true; bridge.lowering = true; isBridgeBattleMusic = true;
+                    audio.bridge.currentTime = 0; startBridgeSeq(); keys["KeyE"] = false; 
                 }
             }
-            document.getElementById('prompt').style.display = near ? "block" : "none";
+            document.getElementById('prompt').style.display = interactNear ? "block" : "none";
 
-            if (!god && player.y < -99550 && player.y > -100050) { if (Math.abs(player.x) > 300 && !(bridge.ready && Math.abs(player.x) < 200)) triggerEnd("death"); }
+            outposts.forEach(o => {
+                if (!o.visited && Math.hypot(player.x, player.y - o.y) < 600) {
+                    guards.push({ x: -150, y: o.y, hp: 100, angle: 0, faction: 'guard' }, { x: 150, y: o.y, hp: 100, angle: 0, faction: 'guard' });
+                    o.visited = true;
+                }
+            });
 
+            // Improved Turret Targeting (Absolute Nearest)
             if (turret.active && (turret.ammo > 0 || infAmmo)) {
-                let t = enemies.find(e => Math.hypot(e.x - player.x, e.y - player.y) < 600);
-                if (t && turret.cooldown <= 0) {
-                    bullets.push({ x: player.x, y: player.y, angle: Math.atan2(t.x - player.x, -(t.y - player.y)), speed: 25, owner: 't' });
-                    if (!infAmmo) turret.ammo--; turret.cooldown = 10;
+                let pool = [...enemies, ...bandits];
+                let nearest = pool.sort((a,b) => Math.hypot(player.x-a.x, player.y-a.y) - Math.hypot(player.x-b.x, player.y-b.y))[0];
+                
+                if (nearest && Math.hypot(player.x - nearest.x, player.y - nearest.y) < 600) {
+                    if (turret.cooldown <= 0) {
+                        let targetAngle = Math.atan2(nearest.x-player.x, -(nearest.y-player.y));
+                        bullets.push({ x: player.x, y: player.y, angle: targetAngle, speed: 28, owner: 'player' });
+                        if (!infAmmo) turret.ammo--; turret.cooldown = 10;
+                    }
                 }
                 if (turret.cooldown > 0) turret.cooldown--;
             }
 
-            enemies.forEach((e, i) => {
-                let potentialTargets = [{x: player.x, y: player.y, type: 'player'}];
-                guards.forEach(g => potentialTargets.push({x: g.x, y: g.y, type: 'guard', ref: g}));
-                let target = null; let minDist = Infinity;
-                potentialTargets.forEach(pt => {
-                    let d = Math.hypot(e.x - pt.x, e.y - pt.y);
-                    if (d < minDist) { minDist = d; target = pt; }
-                });
-                if (target) {
-                    let a = Math.atan2(target.x - e.x, -(target.y - e.y));
-                    e.angle += (a - e.angle) * 0.05; e.x += Math.sin(e.angle) * e.speed; e.y -= Math.cos(e.angle) * e.speed;
-                    if (minDist < 70) {
-                        if (target.type === 'player') { if (!god) player.hp -= (0.8 * (player.hasWire ? 0.7 : 1) * (player.hasMetal ? 0.6 : 1)); if (player.hp <= 0) triggerEnd("death"); }
-                        else { target.ref.hp -= 1; }
+            // Improved Enemy/Bandit Physics
+            [...enemies, ...bandits].forEach(e => {
+                let t = getTarget(e, e.faction);
+                if (t) {
+                    let d = Math.hypot(e.x - t.x, e.y - t.y);
+                    let desiredAngle = Math.atan2(t.x - e.x, -(t.y - e.y));
+                    // Smooth angular steering
+                    let diff = desiredAngle - e.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    e.angle += diff * 0.1;
+
+                    e.x += Math.sin(e.angle) * e.speed; e.y -= Math.cos(e.angle) * e.speed;
+                    if (e.cooldown > 0) e.cooldown--;
+                    if (e.faction === 'red' && d < 75 && e.cooldown <= 0) {
+                        applyDamage(t, 10); e.cooldown = 180;
+                        if (t.faction === 'player' && player.hasWire) { e.hp -= 5; player.wireHP -= 5; if(player.wireHP<=0) player.hasWire=false; }
+                    }
+                    if (e.faction === 'blue' && d < 500 && e.cooldown <= 0) {
+                        bullets.push({x:e.x, y:e.y, angle:e.angle+(Math.random()-0.5)*0.3, speed:22, owner:'enemy'});
+                        e.cooldown = 75;
                     }
                 }
-                bullets.forEach((bull, bi) => {
-                    if (Math.hypot(bull.x - e.x, bull.y - e.y) < 45) { e.hp -= 25; bullets.splice(bi, 1); if (e.hp <= 0) enemies.splice(i, 1); }
-                });
             });
 
-            for (let i = guards.length - 1; i >= 0; i--) {
-                let g = guards[i]; if (g.hp <= 0) { guards.splice(i, 1); continue; }
-                let t = enemies.find(e => Math.hypot(e.x - g.x, e.y - g.y) < 600);
-                if (t) { g.angle = Math.atan2(t.x - g.x, -(t.y - g.y)); if (Math.random() < 0.05) bullets.push({ x: g.x, y: g.y, angle: g.angle, speed: 15, owner: 'g' }); }
+            guards.forEach(g => {
+                let t = getTarget(g, 'guard');
+                if (t) {
+                    let desired = Math.atan2(t.x - g.x, -(t.y - g.y));
+                    let diff = desired - g.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    g.angle += diff * 0.1;
+                    if (Math.random() < 0.03) bullets.push({x:g.x, y:g.y, angle:g.angle+(Math.random()-0.5)*0.2, speed:20, owner:'player'});
+                }
+            });
+
+            // Improved Bullet Physics Loop
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let bull = bullets[i];
+                bull.x += Math.sin(bull.angle) * bull.speed; bull.y -= Math.cos(bull.angle) * bull.speed;
+                let pool = [{x:player.x, y:player.y, faction:'player', hp:player.hp}, ...enemies, ...bandits, ...guards];
+                let hit = false;
+                for (let obj of pool) {
+                    // Larger hit radius for better "feel"
+                    if (Math.hypot(bull.x-obj.x, bull.y-obj.y) < 50) {
+                        if (bull.owner === 'player' && (obj.faction==='red'||obj.faction==='blue')) { obj.hp -= 50; hit = true; break; }
+                        else if (bull.owner === 'enemy' && (obj.faction==='player'||obj.faction==='guard'||obj.faction==='red')) { applyDamage(obj, 5); hit = true; break; }
+                    }
+                }
+                if (hit || Math.abs(bull.y - player.y) > 2200) bullets.splice(i, 1);
             }
 
-            bullets.forEach((b, i) => { b.x += Math.sin(b.angle) * b.speed; b.y -= Math.cos(b.angle) * b.speed; if (Math.abs(b.y - player.y) > 2500) bullets.splice(i, 1); });
+            enemies = enemies.filter(e => e.hp > 0);
+            bandits = bandits.filter(b => b.hp > 0);
+            guards = guards.filter(g => g.hp > 0);
+            if (player.hp <= 0) triggerEnd("death");
             if (bridge.ready && player.y < -101000) triggerEnd("win");
 
+            // HUD UPDATES
             document.getElementById('money').innerText = infCash ? "MAX" : Math.floor(player.money);
             document.getElementById('ammo').innerText = infAmmo ? "∞" : player.ammo;
-            document.getElementById('goldDisp').innerText = player.gold;
-            document.getElementById('silverDisp').innerText = player.silver;
+            document.getElementById('tAmmo').innerText = infAmmo ? "∞" : turret.ammo;
             document.getElementById('dist').innerText = Math.floor(Math.abs(player.y) / 10);
+            document.getElementById('goldDisp').innerText = player.gold;
+            document.getElementById('silverDisp').innerText = player.silver; // SILVER UPDATE FIXED
             document.getElementById('armorDisp').innerText = (player.hasMetal ? "Metal " : "") + (player.hasWire ? "Wire" : "None");
         }
 
-        function startBridge() {
+        function startBridgeSeq() {
             document.getElementById('timer-ui').style.display = 'block';
             let t = setInterval(() => {
-                if (!gameActive) { clearInterval(t); return; }
-                bridge.time--; bridge.progress = (240 - bridge.time) / 240;
-                let m = Math.floor(bridge.time / 60), s = bridge.time % 60;
-                document.getElementById('timeLeft').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-                if (bridge.time % 5 === 0) { 
-                    for (let i = 0; i < 3; i++) {
-                        enemies.push({ x: player.x + (Math.random() - 0.5) * 1500, y: player.y + 1000, angle: 0, speed: 4 + Math.random() * 2, hp: 100 });
-                    }
-                }
+                if(!gameActive || isPaused) return; bridge.time--; bridge.progress = (240-bridge.time)/240;
+                let m = Math.floor(bridge.time/60), s = bridge.time%60;
+                document.getElementById('timeLeft').innerText = `${m}:${s<10?'0':''}${s}`;
+                if (bridge.time % 5 === 0) spawnGroup(player.x, player.y + 1000, "red");
                 if (bridge.time <= 0) { bridge.ready = true; clearInterval(t); }
             }, 1000);
         }
 
         function triggerEnd(type) {
             gameActive = false; screenState = "END";
+            audio.ballad.currentTime = 0;
             const s = type === "death" ? document.getElementById('deathScreen') : document.getElementById('winScreen');
             if (type === "death") s.querySelector('.finalDist').innerText = Math.floor(Math.abs(player.y) / 10);
             s.style.display = 'flex';
             let c = 25;
-            let t = setInterval(() => { c--; s.querySelector('.count').innerText = c; if (c <= 0) location.reload(); }, 1000);
+            let timer = setInterval(() => { c--; s.querySelector('.count').innerText = c; if (c <= 0) { clearInterval(timer); location.reload(); } }, 1000);
         }
 
         function draw() {
             ctx.fillStyle = "#c2b280"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             let ox = canvas.width / 2 - player.x, oy = canvas.height / 2 - player.y;
-            ctx.fillStyle = "#333"; ctx.fillRect(ox - 300, oy - 110000, 600, 200000);
-            ctx.fillStyle = "#1a3a5a"; ctx.fillRect(0, oy - 100050, canvas.width, 500);
+
+            ctx.fillStyle = "#333"; ctx.fillRect(ox - 300, oy - 110000, 600, 220000);
+            ctx.fillStyle = "#1a3a5a"; ctx.fillRect(0, oy - 100050, canvas.width, 500); 
+
             if (bridge.lowering) { ctx.fillStyle = "#444"; ctx.fillRect(ox - 200, oy - 100060, 400, 520 * bridge.progress); }
             ctx.fillStyle = "#AAA"; ctx.fillRect(ox + crank.x - 25, oy + crank.y - 25, 50, 50);
+
             buildings.forEach(b => {
-                ctx.fillStyle = b.type === "BANK" ? "#ffd700" : "#555";
+                ctx.fillStyle = b.looted ? "#222" : (b.type === "BANK" ? "#ffd700" : "#555");
                 ctx.fillRect(ox + b.x - 50, oy + b.y - 50, 100, 100);
-                ctx.fillStyle = "black"; ctx.font = "bold 10px Arial"; ctx.fillText(b.type, ox + b.x - 40, oy + b.y - 60);
+                ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"; ctx.fillText(b.type, ox + b.x - 45, oy + b.y - 60);
             });
-            outposts.forEach(o => {
-                ctx.strokeStyle = "#666"; ctx.lineWidth = 15; ctx.strokeRect(ox - 450, oy + o.y - 350, 900, 700);
-                if (!o.visited && Math.hypot(player.x, player.y - o.y) < 500) { 
-                    guards.push({ x: -150, y: o.y, angle: 0, hp: 100 }, { x: 150, y: o.y, angle: 0, hp: 100 }); 
-                    o.visited = true; 
-                }
-            });
+            outposts.forEach(o => { ctx.strokeStyle = "#666"; ctx.lineWidth = 15; ctx.strokeRect(ox - 450, oy + o.y - 350, 900, 700); });
+
             ctx.fillStyle = "yellow"; bullets.forEach(b => ctx.fillRect(ox + b.x, oy + b.y, 5, 5));
+
             renderCar(canvas.width / 2, canvas.height / 2, player.angle, "#3498db", player.hp, true);
-            enemies.forEach(e => renderCar(ox + e.x, oy + e.y, e.angle, "#e74c3c", e.hp));
-            guards.forEach(g => renderCar(ox + g.x, oy + g.y, g.angle, "#2ecc71", g.hp));
+            enemies.forEach(e => renderCar(ox + e.x, oy + e.y, e.angle, "#e74c3c", e.hp, false));
+            bandits.forEach(b => renderCar(ox + b.x, oy + b.y, b.angle, "#2c3e50", b.hp, false));
+            guards.forEach(g => renderCar(ox + g.x, oy + g.y, g.angle, "#2ecc71", g.hp, false));
+
+            if (player.hasRadar) {
+                [...enemies, ...bandits].forEach(e => {
+                    let dx = e.x - player.x, dy = e.y - player.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist > 500 && dist < 2500) {
+                        let ang = Math.atan2(dy, dx);
+                        ctx.save(); ctx.translate(canvas.width/2 + Math.cos(ang)*200, canvas.height/2 + Math.sin(ang)*200);
+                        ctx.rotate(ang + Math.PI/2); ctx.fillStyle = e.faction === 'red' ? "red" : "blue";
+                        ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(7, 5); ctx.lineTo(-7, 5); ctx.fill(); ctx.restore();
+                    }
+                });
+            }
         }
 
         function renderCar(sx, sy, ang, col, hp, isP) {
-            ctx.save(); ctx.translate(sx, sy); ctx.rotate(ang); ctx.fillStyle = col; ctx.fillRect(-25, -50, 50, 100);
+            ctx.save(); ctx.translate(sx, sy); ctx.rotate(ang); 
+            ctx.fillStyle = col; ctx.fillRect(-25, -50, 50, 100);
             if (isP) {
                 if (player.hasMetal) { ctx.strokeStyle = "gray"; ctx.lineWidth = 5; ctx.strokeRect(-28, -53, 56, 106); }
                 if (player.hasWire) { ctx.strokeStyle = "black"; ctx.setLineDash([3, 3]); ctx.strokeRect(-32, -57, 64, 114); ctx.setLineDash([]); }
@@ -546,21 +548,16 @@
             ctx.fillStyle = hp > 30 ? "lime" : "red"; ctx.fillRect(sx - 30, sy - 75, (Math.max(0, hp) / 100) * 60, 6);
         }
 
-        function showPinBox() {
-            document.getElementById('pinBox').style.display = 'block';
-            document.getElementById('pinField').value = ''; document.getElementById('pinField').focus();
-        }
-
+        function showPinBox() { document.getElementById('pinBox').style.display='block'; }
         function checkPin() {
             if (document.getElementById('pinField').value === "2134") {
-                document.getElementById('adminPanel').style.display = 'block'; document.getElementById('pinBox').style.display = 'none';
-            } else { alert("ACCESS DENIED"); document.getElementById('pinBox').style.display = 'none'; }
+                document.getElementById('adminPanel').style.display='block'; document.getElementById('pinBox').style.display='none';
+            } else { alert("WRONG PIN"); document.getElementById('pinBox').style.display='none'; }
         }
-
-        document.getElementById('admGod').onclick = function() { god = !god; this.classList.toggle('active'); this.innerText = `God: ${god ? 'ON' : 'OFF'}`; };
-        document.getElementById('admCash').onclick = function() { infCash = !infCash; this.classList.toggle('active'); this.innerText = `Cash: ${infCash ? 'ON' : 'OFF'}`; };
-        document.getElementById('admAmmo').onclick = function() { infAmmo = !infAmmo; this.classList.toggle('active'); this.innerText = `Ammo: ${infAmmo ? 'ON' : 'OFF'}`; };
-        document.getElementById('admSpeed').onclick = function() { fast = !fast; this.classList.toggle('active'); this.innerText = `Speed: ${fast ? 'ON' : 'OFF'}`; };
+        document.getElementById('admGod').onclick = function() { god = !god; this.classList.toggle('active'); this.innerText = `God: ${god?'ON':'OFF'}`; };
+        document.getElementById('admCash').onclick = function() { infCash = !infCash; this.classList.toggle('active'); this.innerText = `Cash: ${infCash?'ON':'OFF'}`; };
+        document.getElementById('admAmmo').onclick = function() { infAmmo = !infAmmo; this.classList.toggle('active'); this.innerText = `Ammo: ${infAmmo?'ON':'OFF'}`; };
+        document.getElementById('admSpeed').onclick = function() { fast = !fast; this.classList.toggle('active'); this.innerText = `Speed: ${fast?'ON':'OFF'}`; };
 
         function loop() { update(); draw(); requestAnimationFrame(loop); }
         loop();
