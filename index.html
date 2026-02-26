@@ -7,10 +7,16 @@
     <style>
         body, html {
             margin: 0; padding: 0; overflow: hidden;
-            background: #c2b280; font-family: 'Times New Roman', serif;
+            background: #E3D292; font-family: 'Times New Roman', serif;
             touch-action: none; width: 100vw; height: 100vh;
         }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+            object-fit: contain; /* Prevents stretching */
+            image-rendering: pixelated;
+        }
 
         /* PORTRAIT WARNING */
         #portraitWarning {
@@ -63,7 +69,7 @@
         #adminPanel {
             display: none; position: fixed; right: 10px; top: 10px;
             width: 220px; background: #1b1b1b; border: 2px solid #333;
-            color: white; z-index: 200;
+            color: white; z-index: 200; padding-bottom: 10px;
         }
         .admin-btn {
             width: 100%; padding: 10px; margin: 2px 0;
@@ -71,6 +77,10 @@
             font-size: 12px; text-align: left;
         }
         .admin-btn.active { background: #0066cc; }
+        #cmdInput {
+            width: 90%; margin: 5px 5%; background: #000; border: 1px solid #555;
+            color: #0f0; font-family: monospace; padding: 5px; box-sizing: border-box;
+        }
 
         #pinBox {
             display: none; position: fixed; top: 50%; left: 50%;
@@ -97,7 +107,8 @@
     <audio id="sndSpaghetti" src="./spaghetti.mp3" loop preload="auto"></audio>
     <audio id="sndAction" src="./action.mp3" loop preload="auto"></audio>
     <audio id="sndOutlaw" src="./outlaw.mp3" loop preload="auto"></audio>
-    <audio id="sndBridgeBattle" src="./Battleatbridge.mp3" loop preload="auto"></audio>
+    <!-- Removed loop from Bridge Battle so it plays only once -->
+    <audio id="sndBridgeBattle" src="./Battleatbridge.mp3" preload="auto"></audio>
 
     <div id="startScreen" onclick="startGame()">
         <div style="border: 3px solid white; padding: 40px; border-radius: 20px; background: #111;">
@@ -136,7 +147,7 @@
         <button class="admin-btn" id="admCash">Infinite Cash: OFF</button>
         <button class="admin-btn" id="admAmmo">Infinite Ammo: OFF</button>
         <button class="admin-btn" id="admSpeed">Super Speed: OFF</button>
-        <button class="admin-btn" onclick="player.y = -98500">Teleport to End</button>
+        <input type="text" id="cmdInput" placeholder="/spawn @e [type] or /teleport @a [dist]" onkeydown="if(event.key==='Enter') runCmd(this)">
     </div>
 
     <div class="controls-container">
@@ -169,6 +180,9 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
+        // TEXTURES
+        const texRoad = new Image(); texRoad.src = 'road.png';
+
         const audio = {
             ballad: document.getElementById('sndBallad'),
             spaghetti: document.getElementById('sndSpaghetti'),
@@ -197,11 +211,38 @@
         let lastHasEnemies = false, lastHasBandits = false;
         let lastBanditSpawn = 0;
 
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
         function startGame() {
             audioUnlocked = true;
             for (let k in audio) { audio[k].play(); audio[k].volume = 0; }
             document.getElementById('startScreen').style.display = 'none';
             screenState = "PLAYING"; gameActive = true;
+        }
+
+        function runCmd(input) {
+            let val = input.value.trim();
+            if (val.startsWith("/spawn @e ")) {
+                let type = val.split(" ")[2];
+                let sy = player.y - 500;
+                if (type === "enemies") enemies.push({ x: player.x, y: sy, angle: Math.PI, speed: 3.5, hp: 100, cooldown: 0, faction: 'red', noDamage: true });
+                else if (type === "bandit") bandits.push({ x: player.x, y: sy, angle: Math.PI, speed: 4, hp: 100, cooldown: 0, faction: 'blue', noDamage: true });
+                else if (type === "guard") guards.push({ x: player.x + 100, y: sy, hp: 100, angle: 0, faction: 'guard', noDamage: true });
+            } 
+            else if (val.startsWith("/teleport @a [")) {
+                let distStr = val.substring(val.indexOf("[") + 1, val.indexOf("]"));
+                let distNum = parseFloat(distStr);
+                if (!isNaN(distNum)) {
+                    player.y = -(Math.min(distNum, 10000) * 10);
+                    player.x = 0; 
+                }
+            }
+            input.value = ""; input.blur();
         }
 
         function togglePause() {
@@ -234,7 +275,12 @@
                     lastHasBandits = hasB;
                 }
             } else if (screenState === "END") {
+                // Ensure ONLY ballad plays and everything else is 0
                 target.ballad = 0.6;
+                target.spaghetti = 0;
+                target.action = 0;
+                target.outlaw = 0;
+                target.bridge = 0;
             }
 
             for (let k in audio) fadeTrack(audio[k], target[k], (k !== 'spaghetti'));
@@ -250,7 +296,10 @@
         }
 
         const keys = {};
-        window.addEventListener("keydown", e => { if(e.code==="Escape") togglePause(); keys[e.code] = true; });
+        window.addEventListener("keydown", e => { 
+            if(document.activeElement.id === "cmdInput") return;
+            if(e.code==="Escape") togglePause(); keys[e.code] = true; 
+        });
         window.addEventListener("keyup", e => keys[e.code] = false);
 
         function setupTouch(id, k) {
@@ -263,7 +312,6 @@
         setupTouch("btnShoot","Space"); setupTouch("btnE","KeyE"); setupTouch("btnF","KeyF"); setupTouch("btnG","KeyG");
 
         function initWorld() {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             const segments = [0, -30000, -60000, -90000];
             for (let i = 0; i < 3; i++) {
                 for (let j = 0; j < 2; j++) {
@@ -293,7 +341,8 @@
             }
         }
 
-        function applyDamage(target, amount) {
+        function applyDamage(target, amount, source) {
+            if (source && source.noDamage) return; 
             if (target.faction === 'player') {
                 if (god) return;
                 let final = amount;
@@ -314,13 +363,21 @@
                 return false;
             });
             if(targets.length === 0) return null;
-            // Sorting ensures it returns the absolute nearest
             return targets.sort((a,b) => Math.hypot(me.x-a.x, me.y-a.y) - Math.hypot(me.x-b.x, me.y-b.y))[0];
         }
 
         function update() {
-            updateMusic();
             if (!gameActive || isPaused) return;
+
+            // INSTANT WATER DEATH (No delay check)
+            if (player.y < -99550 && player.y > -100500) {
+                if (Math.abs(player.x) > 280 && !(bridge.ready && Math.abs(player.x) < 200) && !god) {
+                    triggerEnd("death");
+                    return;
+                }
+            }
+
+            updateMusic();
 
             let turnMult = 0.06;
             if (keys["KeyA"]) player.angle -= turnMult;
@@ -330,10 +387,6 @@
             player.speed *= 0.96;
             player.x += Math.sin(player.angle) * player.speed;
             player.y -= Math.cos(player.angle) * player.speed;
-
-            if (player.y < -99550 && player.y > -100500) {
-                if (Math.abs(player.x) > 300 && !(bridge.ready && Math.abs(player.x) < 200) && !god) triggerEnd("death");
-            }
 
             let dist = Math.abs(player.y);
             if (dist > lastBanditSpawn + 2000) { 
@@ -392,11 +445,9 @@
                 }
             });
 
-            // Improved Turret Targeting (Absolute Nearest)
             if (turret.active && (turret.ammo > 0 || infAmmo)) {
                 let pool = [...enemies, ...bandits];
                 let nearest = pool.sort((a,b) => Math.hypot(player.x-a.x, player.y-a.y) - Math.hypot(player.x-b.x, player.y-b.y))[0];
-                
                 if (nearest && Math.hypot(player.x - nearest.x, player.y - nearest.y) < 600) {
                     if (turret.cooldown <= 0) {
                         let targetAngle = Math.atan2(nearest.x-player.x, -(nearest.y-player.y));
@@ -407,26 +458,23 @@
                 if (turret.cooldown > 0) turret.cooldown--;
             }
 
-            // Improved Enemy/Bandit Physics
             [...enemies, ...bandits].forEach(e => {
                 let t = getTarget(e, e.faction);
                 if (t) {
                     let d = Math.hypot(e.x - t.x, e.y - t.y);
                     let desiredAngle = Math.atan2(t.x - e.x, -(t.y - e.y));
-                    // Smooth angular steering
                     let diff = desiredAngle - e.angle;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
                     e.angle += diff * 0.1;
-
                     e.x += Math.sin(e.angle) * e.speed; e.y -= Math.cos(e.angle) * e.speed;
                     if (e.cooldown > 0) e.cooldown--;
                     if (e.faction === 'red' && d < 75 && e.cooldown <= 0) {
-                        applyDamage(t, 10); e.cooldown = 180;
+                        applyDamage(t, 10, e); e.cooldown = 180;
                         if (t.faction === 'player' && player.hasWire) { e.hp -= 5; player.wireHP -= 5; if(player.wireHP<=0) player.hasWire=false; }
                     }
                     if (e.faction === 'blue' && d < 500 && e.cooldown <= 0) {
-                        bullets.push({x:e.x, y:e.y, angle:e.angle+(Math.random()-0.5)*0.3, speed:22, owner:'enemy'});
+                        bullets.push({x:e.x, y:e.y, angle:e.angle+(Math.random()-0.5)*0.3, speed:22, owner:'enemy', source: e});
                         e.cooldown = 75;
                     }
                 }
@@ -444,17 +492,15 @@
                 }
             });
 
-            // Improved Bullet Physics Loop
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let bull = bullets[i];
                 bull.x += Math.sin(bull.angle) * bull.speed; bull.y -= Math.cos(bull.angle) * bull.speed;
                 let pool = [{x:player.x, y:player.y, faction:'player', hp:player.hp}, ...enemies, ...bandits, ...guards];
                 let hit = false;
                 for (let obj of pool) {
-                    // Larger hit radius for better "feel"
                     if (Math.hypot(bull.x-obj.x, bull.y-obj.y) < 50) {
                         if (bull.owner === 'player' && (obj.faction==='red'||obj.faction==='blue')) { obj.hp -= 50; hit = true; break; }
-                        else if (bull.owner === 'enemy' && (obj.faction==='player'||obj.faction==='guard'||obj.faction==='red')) { applyDamage(obj, 5); hit = true; break; }
+                        else if (bull.owner === 'enemy' && (obj.faction==='player'||obj.faction==='guard'||obj.faction==='red')) { applyDamage(obj, 5, bull.source); hit = true; break; }
                     }
                 }
                 if (hit || Math.abs(bull.y - player.y) > 2200) bullets.splice(i, 1);
@@ -466,13 +512,14 @@
             if (player.hp <= 0) triggerEnd("death");
             if (bridge.ready && player.y < -101000) triggerEnd("win");
 
-            // HUD UPDATES
             document.getElementById('money').innerText = infCash ? "MAX" : Math.floor(player.money);
             document.getElementById('ammo').innerText = infAmmo ? "∞" : player.ammo;
             document.getElementById('tAmmo').innerText = infAmmo ? "∞" : turret.ammo;
-            document.getElementById('dist').innerText = Math.floor(Math.abs(player.y) / 10);
+            
+            document.getElementById('dist').innerText = Math.floor((-player.y) / 10);
+            
             document.getElementById('goldDisp').innerText = player.gold;
-            document.getElementById('silverDisp').innerText = player.silver; // SILVER UPDATE FIXED
+            document.getElementById('silverDisp').innerText = player.silver;
             document.getElementById('armorDisp').innerText = (player.hasMetal ? "Metal " : "") + (player.hasWire ? "Wire" : "None");
         }
 
@@ -489,19 +536,35 @@
 
         function triggerEnd(type) {
             gameActive = false; screenState = "END";
+            
+            // Immediately cut other music and force ballad
+            for (let k in audio) { if(k !== 'ballad') audio[k].volume = 0; }
             audio.ballad.currentTime = 0;
+            audio.ballad.volume = 0.6;
+            audio.ballad.play();
+
             const s = type === "death" ? document.getElementById('deathScreen') : document.getElementById('winScreen');
-            if (type === "death") s.querySelector('.finalDist').innerText = Math.floor(Math.abs(player.y) / 10);
+            if (type === "death") s.querySelector('.finalDist').innerText = Math.floor((-player.y) / 10);
             s.style.display = 'flex';
             let c = 25;
             let timer = setInterval(() => { c--; s.querySelector('.count').innerText = c; if (c <= 0) { clearInterval(timer); location.reload(); } }, 1000);
         }
 
         function draw() {
-            ctx.fillStyle = "#c2b280"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#E3D292"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             let ox = canvas.width / 2 - player.x, oy = canvas.height / 2 - player.y;
 
-            ctx.fillStyle = "#333"; ctx.fillRect(ox - 300, oy - 110000, 600, 220000);
+            if (texRoad.complete) {
+                let rw = 600;
+                let rh = texRoad.height * (rw / texRoad.width);
+                let startY = Math.floor(oy % rh) - rh;
+                for (let y = startY; y < canvas.height + rh; y += rh) {
+                    ctx.drawImage(texRoad, ox - 300, y, rw, rh);
+                }
+            } else {
+                ctx.fillStyle = "#333"; ctx.fillRect(ox - 300, oy - 110000, 600, 220000);
+            }
+
             ctx.fillStyle = "#1a3a5a"; ctx.fillRect(0, oy - 100050, canvas.width, 500); 
 
             if (bridge.lowering) { ctx.fillStyle = "#444"; ctx.fillRect(ox - 200, oy - 100060, 400, 520 * bridge.progress); }
@@ -516,7 +579,7 @@
 
             ctx.fillStyle = "yellow"; bullets.forEach(b => ctx.fillRect(ox + b.x, oy + b.y, 5, 5));
 
-            renderCar(canvas.width / 2, canvas.height / 2, player.angle, "#3498db", player.hp, true);
+            renderCar(canvas.width / 2, canvas.height / 2, player.angle, "cyan", player.hp, true);
             enemies.forEach(e => renderCar(ox + e.x, oy + e.y, e.angle, "#e74c3c", e.hp, false));
             bandits.forEach(b => renderCar(ox + b.x, oy + b.y, b.angle, "#2c3e50", b.hp, false));
             guards.forEach(g => renderCar(ox + g.x, oy + g.y, g.angle, "#2ecc71", g.hp, false));
@@ -538,6 +601,7 @@
         function renderCar(sx, sy, ang, col, hp, isP) {
             ctx.save(); ctx.translate(sx, sy); ctx.rotate(ang); 
             ctx.fillStyle = col; ctx.fillRect(-25, -50, 50, 100);
+            
             if (isP) {
                 if (player.hasMetal) { ctx.strokeStyle = "gray"; ctx.lineWidth = 5; ctx.strokeRect(-28, -53, 56, 106); }
                 if (player.hasWire) { ctx.strokeStyle = "black"; ctx.setLineDash([3, 3]); ctx.strokeRect(-32, -57, 64, 114); ctx.setLineDash([]); }
