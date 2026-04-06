@@ -2,549 +2,441 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Last Drive!</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Last Drive: Apocalypse</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body, html {
-            margin: 0; padding: 0; overflow: hidden;
-            background: #E3D292; font-family: 'Times New Roman', serif;
-            touch-action: none; width: 100vw; height: 100vh;
-        }
-        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #c2b280; font-family: 'Courier New', Courier, monospace; touch-action: none; width: 100vw; height: 100vh; }
+        canvas { display: block; z-index: 1; }
 
-        #portraitWarning {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); color: white; z-index: 10000;
-            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        /* HUD UI */
+        #hud { 
+            position: fixed; top: 10px; left: 10px; 
+            background: rgba(28, 26, 17, 0.95); 
+            color: #f0f0f0; padding: 15px; 
+            border: 1px solid #444; border-radius: 2px; 
+            z-index: 100; font-size: 16px; line-height: 1.5;
+            display: none; 
         }
-        @media screen and (orientation: portrait) { #portraitWarning { display: flex; } }
+        .admin-link { color: #555; cursor: pointer; text-decoration: none; font-size: 13px; margin-top: 5px; display: block; }
 
-        #bondUI {
-            position: fixed; bottom: 20px; left: 20px;
-            display: none; align-items: center;
-            background: rgba(0,0,0,0.5); padding: 10px; border: 2px solid #555;
-            z-index: 100;
-        }
-        #bondUI img { width: 60px; margin-right: 10px; }
-        #bondUI span { color: #ff4d4d; font-size: 38px; font-weight: bold; text-shadow: 2px 2px black; }
+        #scrapUI { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; color: #ffd700; border: 1px solid #ffd700; z-index: 100; display: flex; align-items: center; gap: 8px; font-weight: bold; }
+        .scrap-img { width: 20px; height: 20px; }
 
-        #hud {
-            position: fixed; top: 10px; left: 10px;
-            color: white; background: rgba(0,0,0,0.85);
-            padding: 12px; border-radius: 5px; z-index: 10;
-            border: 1px solid #444; font-family: monospace; font-size: 14px;
-            display: none; pointer-events: none;
-        }
-        #adminAccess, #lobbyAdminAccess { pointer-events: auto; color: #666; cursor: pointer; font-size: 10px; text-decoration: underline; }
-        #lobbyAdminAccess { position: fixed; top: 10px; right: 10px; z-index: 200; display: none; }
+        /* MULTIPLAYER PANEL */
+        #mpPanel { position: fixed; right: 10px; top: 70px; width: 220px; background: rgba(0,0,0,0.9); border: 2px solid cyan; padding: 10px; color: white; z-index: 100; text-align: center; }
+        #usernameIn { width: 90%; padding: 5px; margin-bottom: 5px; background: #111; color: white; border: 1px solid #444; text-align: center; }
+        .btn { background: #222; color: cyan; border: 1px solid cyan; padding: 8px; margin: 4px 0; cursor: pointer; width: 100%; font-family: monospace; font-weight: bold; }
+        #joinIn { width: 90%; background: #111; color: white; border: 1px solid #444; padding: 5px; text-align: center; margin-bottom: 5px; }
 
-        .controls-container {
-            position: fixed; bottom: 15px; width: 100%;
-            display: flex; justify-content: space-between; padding: 0 50px;
-            box-sizing: border-box; pointer-events: none; z-index: 50;
-        }
-        .touch-group { display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
-        .touch-btn {
-            width: 60px; height: 60px; background: rgba(255,255,255,0.15);
-            border: 2px solid rgba(255,255,255,0.4); border-radius: 50%;
-            color: white; display: flex; align-items: center; justify-content: center;
-            margin: 5px; user-select: none; font-weight: bold; font-size: 18px;
-        }
-        #btnShoot { width: 85px; height: 85px; background: rgba(255,0,0,0.3); border-color: red; }
+        /* ADMIN ACCESS UI */
+        #pinBox { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; border: 2px solid #fff; padding: 20px; z-index: 3000; display: none; text-align: center; color: white; }
+        #pinInput { width: 80%; padding: 10px; background: #000; color: #fff; border: 1px solid #fff; margin-bottom: 10px; text-align: center; font-size: 18px; }
 
-        #startScreen, #pauseOverlay, .end-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            flex-direction: column; z-index: 300; text-align: center;
-        }
-        #startScreen { background: #000; color: white; cursor: pointer; }
-        #pauseOverlay { background: rgba(0,0,0,0.85); display: none; z-index: 400; color: white; }
-        .end-screen { background: black; color: white; display: none; z-index: 500; }
-        #deathScreen h1 { color: #b30000; font-size: 70px; margin: 0; }
-        #winScreen h1 { color: #00b300; font-size: 70px; margin: 0; }
+        /* GREEN COMMAND CONSOLE */
+        #cmdBox { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); width: 450px; background: rgba(0,0,0,0.9); border: 2px solid #0f0; z-index: 2000; display: none; }
+        #cmdInput { width: 100%; background: none; border: none; color: #0f0; padding: 12px; font-family: monospace; outline: none; box-sizing: border-box; font-size: 14px; }
 
-        #adminPanel {
-            display: none; position: fixed; right: 10px; top: 10px;
-            width: 220px; background: #1b1b1b; border: 2px solid #333;
-            color: white; z-index: 600; padding-bottom: 10px;
-        }
-        .admin-btn { width: 100%; padding: 10px; margin: 2px 0; background: #333; color: white; border: none; cursor: pointer; font-size: 12px; }
-        .admin-btn.active { background: #0066cc; }
-        #cmdInput { width: 90%; margin: 5px 5%; background: #000; color: #0f0; border: 1px solid #555; font-family: monospace; padding: 5px; }
+        /* SCREENS */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 1000; background: black; color: white; text-align: center; }
+        #winScreen h1 { color: #00ff00; font-size: 60px; }
+        #deathScreen h1 { color: #ff0000; font-size: 60px; }
+        .dist-txt { font-size: 24px; margin: 20px 0; font-weight: bold; }
+        .end-btn { padding: 15px 30px; margin: 10px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; min-width: 250px; font-family: 'Courier New', monospace; }
+        .yellow { background: #f1c40f; color: black; }
+        .green { background: #2ecc71; color: white; }
 
-        #pinBox {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #111; padding: 20px; border: 2px solid #f1c40f; z-index: 1000; text-align: center; color: white;
-        }
-        #pinField { background: #333; color: white; border: 1px solid #666; padding: 8px; width: 100px; text-align: center; }
-
-        #prompt {
-            position: fixed; bottom: 35%; left: 50%; transform: translateX(-50%);
-            display: none; background: rgba(0,0,0,0.9); color: yellow;
-            padding: 15px; border: 2px solid white; z-index: 60; font-weight: bold;
-        }
+        /* MISC */
+        #prompt { position: fixed; bottom: 35%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #f1c40f; padding: 15px 30px; border: 2px solid white; z-index: 100; display: none; font-weight: bold; text-align: center; }
+        #timer { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #000; color: red; border: 2px solid red; padding: 10px 20px; font-size: 24px; display: none; z-index: 200; font-weight: bold; }
+        #mobileUI { position: fixed; bottom: 20px; width: 100%; display: none; justify-content: space-between; padding: 0 40px; box-sizing: border-box; z-index: 500; pointer-events: none; }
+        .t-grp { display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+        .t-btn { width: 60px; height: 60px; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; margin: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="portraitWarning"><h1>PLEASE ROTATE DEVICE</h1><p>Landscape mode required.</p></div>
+    <audio id="sndLobby" src="lobby.mp3" loop></audio>
+    <audio id="sndSpag" src="spaghetti.mp3" loop></audio>
+    <audio id="sndAction" src="action.mp3"></audio>
+    <audio id="sndOutlaw" src="outlaw.mp3"></audio>
+    <audio id="sndBridge" src="bridgebattle.mp3" loop></audio>
+    <audio id="sndBallad" src="ballad.mp3" loop></audio>
 
-    <audio id="sndBallad" src="./ballad.mp3" loop preload="auto"></audio>
-    <audio id="sndSpaghetti" src="./spaghetti.mp3" loop preload="auto"></audio>
-    <audio id="sndAction" src="./action.mp3" loop preload="auto"></audio>
-    <audio id="sndOutlaw" src="./outlaw.mp3" loop preload="auto"></audio>
-    <audio id="sndBridgeBattle" src="./Battleatbridge.mp3" preload="auto"></audio>
-    <audio id="sndLobby" src="./lobby.mp3" loop preload="auto"></audio>
-
-    <div id="startScreen" onclick="enterLobby()">
-        <div style="border: 3px solid white; padding: 40px; border-radius: 20px; background: #111;">
-            <span style="font-size: 40px; font-weight: bold; color: #f1c40f;">Last Drive!</span><br>
-            <span>press to launch the game</span><br><br>
-            <span style="color: #0f0;">(Click to Enter Lobby)</span>
-        </div>
+    <!-- ADMIN SYSTEM -->
+    <div id="pinBox">
+        <h3>ENTER ACCESS PIN</h3>
+        <input type="password" id="pinInput" maxlength="4">
+        <div id="pinError" style="color:red; display:none; margin-bottom:10px;">WRONG PIN</div>
+        <button class="btn" onclick="verifyPin()">ENTER</button>
+        <button class="btn" style="color:red;" onclick="closePin()">CANCEL</button>
     </div>
 
-    <div id="bondUI"><img src="bond.png" alt="B"><span id="bondCount">0</span></div>
-    <div id="lobbyAdminAccess" onclick="showPinBox()">[ Admin Access ]</div>
+    <div id="cmdBox"><input type="text" id="cmdInput" value="/login "></div>
 
     <div id="hud">
-        <div>$ <span id="money">0</span> | Ammo: <span id="ammo">100</span></div>
-        <div>T-Ammo: <span id="tAmmo">0</span> | Gold: <span id="goldDisp">0</span> | Silver: <span id="silverDisp">0</span></div>
-        <div>Armor: <span id="armorDisp">None</span></div>
-        <div>Dist: <span id="dist">0</span>m / 10000m</div>
-        <div id="adminAccess" onclick="showPinBox()">[ Admin Access ]</div>
-        <div id="timer-ui" style="display:none; color:red">BRIDGE: <span id="timeLeft">4:00</span></div>
+        $ <span id="vMoney">50</span> | Ammo: <span id="vAmmo">50</span><br>
+        T-Ammo: <span id="vTAmmo">0</span> | Gold: <span id="vGold">0</span> | Silver: <span id="vSilver">0</span><br>
+        Armor: <span id="vArmor">None</span><br>
+        Dist: <span id="vDist">0</span>m / 10000m<br>
+        <span class="admin-link" onclick="openPin()">[_ Admin Access _]</span>
     </div>
 
-    <div id="pinBox">
-        <b>ENTER ACCESS CODE</b><br><input type="password" id="pinField" maxlength="4"><br>
-        <button onclick="checkPin()">SUBMIT</button>
-        <button onclick="document.getElementById('pinBox').style.display='none'">CANCEL</button>
+    <div id="scrapUI">
+        <img src="scrap.png" class="scrap-img"> <span id="vScrap">50</span>
     </div>
 
-    <div id="adminPanel">
-        <div style="background:#222; padding:8px; display:flex; justify-content:space-between"><span>Admin Panel</span><span onclick="this.parentElement.parentElement.style.display='none'" style="color:red; cursor:pointer">X</span></div>
-        <button class="admin-btn" id="admGod">God Mode: OFF</button>
-        <button class="admin-btn" id="admBonds">Infinite Bonds: OFF</button>
-        <button class="admin-btn" id="admCash">Infinite Cash: OFF</button>
-        <button class="admin-btn" id="admAmmo">Infinite Ammo: OFF</button>
-        <button class="admin-btn" id="admSpeed">Super Speed: OFF</button>
-        <input type="text" id="cmdInput" placeholder="/spawn @e [type] or /teleport @a [dist]" onkeydown="if(event.key==='Enter') runCmd(this)">
+    <div id="mpPanel">
+        <input type="text" id="usernameIn" placeholder="USERNAME" maxlength="12">
+        <div id="roomCode" style="color:cyan; font-size: 11px; margin-bottom: 5px;">ID: Offline</div>
+        <button class="btn" onclick="hostGame()">HOST</button>
+        <input type="text" id="joinIn" placeholder="JOIN CODE">
+        <button class="btn" onclick="joinGame()">JOIN</button>
     </div>
 
-    <div class="controls-container">
-        <div class="touch-group"><div class="touch-btn" id="btnUp">W</div><div style="display:flex"><div class="touch-btn" id="btnLeft">A</div><div class="touch-btn" id="btnDown">S</div><div class="touch-btn" id="btnRight">D</div></div></div>
-        <div class="touch-group"><div style="display:flex"><div class="touch-btn" id="btnE">E</div><div class="touch-btn" id="btnF">F</div><div class="touch-btn" id="btnG">G</div></div><div class="touch-btn" id="btnShoot">FIRE</div></div>
+    <div id="startScreen" class="overlay">
+        <h1 style="color: #f1c40f;">LAST DRIVE</h1>
+        <button class="end-btn green" onclick="initLobby()">ENTER LOBBY</button>
     </div>
 
-    <div id="deathScreen" class="end-screen"><h1>Everyone died...</h1><p style="font-size:24px">Final Distance: <span class="finalDist">0</span> m</p><p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p></div>
-    <div id="winScreen" class="end-screen"><h1>You Escaped!</h1><p style="font-size:24px">Final Distance: 10000 m</p><p style="color:#555; position:absolute; bottom:15%">Returning in <span class="count">25</span>s</p></div>
+    <div id="winScreen" class="overlay" style="display:none;">
+        <h1>You Escaped!</h1>
+        <div class="dist-txt">Final Distance: 10000 m</div>
+        <button class="end-btn green" onclick="location.reload()">PLAY AGAIN</button>
+    </div>
 
+    <div id="deathScreen" class="overlay" style="display:none;">
+        <h1>Everyone died...</h1>
+        <div class="dist-txt">Final Distance: <span id="deathDist">0</span> m</div>
+        <button class="end-btn yellow" onclick="location.reload()">RESTART</button>
+        <button class="end-btn green" onclick="reviveTeam()">REVIVE TEAM (75 SCRAPS)</button>
+    </div>
+
+    <div id="timer">EVACUATION: 4:00</div>
     <div id="prompt">INTERACT</div>
+
+    <div id="mobileUI">
+        <div class="t-grp"><div class="t-btn" id="tW">W</div><div style="display:flex"><div class="t-btn" id="tA">A</div><div class="t-btn" id="tS">S</div><div class="t-btn" id="tD">D</div></div></div>
+        <div class="t-grp"><div style="display:flex"><div class="t-btn" id="tE">E</div><div class="t-btn" id="tF">F</div><div class="t-btn" id="tG">G</div></div><div class="t-btn" id="tFire" style="background:rgba(255,0,0,0.5)">FIRE</div></div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const texRoad = new Image(); texRoad.src = 'road.png';
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const zoom = isMobile ? 0.5 : 0.75;
+        if(isMobile) document.getElementById('mobileUI').style.display='flex';
 
-        const audio = {
-            ballad: document.getElementById('sndBallad'),
-            spaghetti: document.getElementById('sndSpaghetti'),
-            action: document.getElementById('sndAction'),
-            outlaw: document.getElementById('sndOutlaw'),
-            bridge: document.getElementById('sndBridgeBattle'),
-            lobby: document.getElementById('sndLobby')
+        let gameState = "START", isHost = false, isAdmin = false, peer, conn;
+        let player = {
+            x: 0, y: 50300, angle: 0, speed: 0, hp: 100, maxHp: 100, 
+            money: 50, scraps: 50, ammo: 50, tammo: 0, gold: 0, silver: 0,
+            armor: 'None', armorHP: 0, speedM: 1, dmgM: 1, radar: false, turret: false,
+            maxDist: 0, cooldown: 0, name: "Player"
         };
 
-        let gameActive = false, isPaused = false, audioUnlocked = false;
-        let god = false, infCash = false, infAmmo = false, fast = false, infBonds = false;
-        let player = { x: 0, y: 0, angle: 0, speed: 0, hp: 100, money: 50, bonds: 0, ammo: 100, gold: 0, silver: 0, cooldown: 0, hasMetal: false, metalHP: 100, hasWire: false, wireHP: 50, hasRadar: false, faction: 'player' };
-        
-        if(localStorage.getItem('ld_bonds')) player.bonds = parseInt(localStorage.getItem('ld_bonds'));
-        function saveProgress() { localStorage.setItem('ld_bonds', player.bonds); }
+        let remotePlayers = {}, entities = [], bullets = [], buildings = [], outposts = [];
+        let finale = { active: false, timer: 240, crank: false, spawned: 0, lastS: 0 };
+        let cheats = { god: false, ammo: false };
+        let lastBattleTrack = null;
 
-        let enemies = [], bandits = [], bullets = [], guards = [], buildings = [], outposts = [];
-        let bridge = { lowering: false, time: 240, ready: false, progress: 0 };
-        let crank = { x: 350, y: -99000, rotated: false }; 
-        let turret = { active: false, ammo: 0, cooldown: 0, currentAngle: 0 };
-        let screenState = "MENU", isBridgeBattleMusic = false;
-        let lastHasEnemies = false, lastHasBandits = false;
-        let lastBanditSpawn = 0, enemySpawnCount = 0, banditSpawnCount = 0, spawnTimer = 0;
+        const snd = {
+            lobby: document.getElementById('sndLobby'), spag: document.getElementById('sndSpag'),
+            action: document.getElementById('sndAction'), outlaw: document.getElementById('sndOutlaw'),
+            bridge: document.getElementById('sndBridge'), ballad: document.getElementById('sndBallad')
+        };
 
-        let lobbyBuildings = [
-            { x: -350, y: -250, w: 200, h: 180, type: "GENERAL_STORE", label: "General Store" },
-            { x: 350, y: -250, w: 200, h: 180, type: "GUNSMITH_LOBBY", label: "Gunsmith" },
-            { x: 0, y: -550, w: 250, h: 100, type: "TELEPORTER", label: "TO THE DRIVE" }
-        ];
+        // --- ADMIN SYSTEM ---
+        function openPin() { document.getElementById('pinBox').style.display = 'block'; }
+        function closePin() { document.getElementById('pinBox').style.display = 'none'; }
+        function verifyPin() {
+            if(document.getElementById('pinInput').value === "3412") {
+                document.getElementById('pinBox').style.display = 'none';
+                document.getElementById('cmdBox').style.display = 'block';
+                document.getElementById('cmdInput').focus();
+            } else {
+                document.getElementById('pinError').style.display = 'block';
+            }
+        }
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize); resize();
+        document.getElementById('cmdInput').addEventListener('keydown', e => {
+            if(e.key === 'Enter') { handleCommand(e.target.value); e.target.value = "/"; }
+        });
 
-        function enterLobby() {
-            audioUnlocked = true;
-            for (let k in audio) { audio[k].play(); audio[k].volume = 0; audio[k].currentTime = 0; }
-            document.getElementById('startScreen').style.display = 'none';
-            document.getElementById('bondUI').style.display = 'flex';
-            document.getElementById('lobbyAdminAccess').style.display = 'block';
-            screenState = "LOBBY";
+        function handleCommand(val) {
+            const regex = /\/(\w+)\s+@?([\w\d]+)(?:\[(.*?)\])?/;
+            const match = val.match(regex);
+            if(!match) return;
+
+            const cmd = match[1], target = match[2], data = match[3];
+
+            if(cmd === "login") {
+                if(data === "389393") { isAdmin = true; alert("Admin Access Unlocked"); }
+                else { alert("WRONG PIN"); }
+                return;
+            }
+            if(!isAdmin) return;
+
+            const applyStat = (obj, stat, value) => {
+                const v = parseFloat(value);
+                if(stat === "Health") { obj.hp = v; obj.maxHp = v; }
+                if(stat === "Speed") obj.speedM = v;
+                if(stat === "Damage") obj.dmgM = v;
+                if(stat === "Money") obj.money = v;
+            };
+
+            const runTarget = (t, d) => {
+                const pair = d ? d.split(':') : [];
+                if(t === "s" || t === player.name) applyStat(player, pair[0], pair[1]);
+                if(t === "a" || t === "zombie" || t === "bandit" || t === "guard") {
+                    if(t === "a") { applyStat(player, pair[0], pair[1]); if(conn) conn.send({type:'stat', s:pair[0], v:pair[1]}); }
+                    entities.forEach(e => { if(e.type === t || t === 'a') { e.hp = parseFloat(pair[1]); e.speed = 5; } });
+                }
+            };
+
+            if(cmd === "stat") runTarget(target, data);
+            if(cmd === "teleport") { player.y = parseFloat(data); player.speed = 0; gameState = (player.y < 40000) ? "DRIVE" : "LOBBY"; }
+            if(cmd === "gamerule" && data === "bridge true") { finale.active = true; finale.timer = 110; finale.crank = true; }
+        }
+
+        // --- MULTIPLAYER ---
+        function hostGame() {
+            player.name = document.getElementById('usernameIn').value || "Host";
+            let id = Math.random().toString(36).substring(2, 7).toUpperCase();
+            peer = new Peer(id);
+            peer.on('open', code => { document.getElementById('roomCode').innerText = "ID: " + code; isHost = true; setupPeer(); });
+        }
+
+        function joinGame() {
+            player.name = document.getElementById('usernameIn').value || "Guest";
+            let code = document.getElementById('joinIn').value.trim().toUpperCase();
+            peer = new Peer();
+            peer.on('open', () => { conn = peer.connect(code); isHost = false; setupPeer(); });
+        }
+
+        function setupPeer() {
+            if(isHost) peer.on('connection', c => { conn = c; conn.on('data', d => handleData(d)); });
+            else conn.on('data', d => handleData(d));
+        }
+
+        function handleData(d) {
+            if(d.type === 'sync') remotePlayers[d.id] = d;
+            if(d.type === 'world') { entities = d.entities; finale = d.finale; buildings = d.buildings; outposts = d.outposts; }
+            if(d.type === 'start') startGame();
+            if(d.type === 'revive') { player.hp = 100; gameState = "DRIVE"; document.getElementById('deathScreen').style.display='none'; }
+            if(d.type === 'stat') { applyStat(player, d.s, d.v); }
+        }
+
+        // --- WORLD LOGIC ---
+        function initLobby() {
+            gameState = "LOBBY"; document.getElementById('startScreen').style.display='none';
+            buildings = [
+                {x: -400, y: 50200, type: 'L_STORE', label: 'GENERAL STORE'},
+                {x: 400, y: 50200, type: 'L_GUN', label: 'GUNSMITH'},
+                {x: 0, y: 49500, type: 'TELE', label: 'TELEPORTER'}
+            ];
+            for(let key in snd) { snd[key].play().then(() => snd[key].volume = 0); }
         }
 
         function startGame() {
-            document.getElementById('bondUI').style.display = 'none';
-            document.getElementById('lobbyAdminAccess').style.display = 'none';
-            document.getElementById('hud').style.display = 'block';
-            screenState = "PLAYING"; gameActive = true;
-            initWorld();
-        }
-
-        //Admin Console//
-        function runCmd(input) {
-            let val = input.value.trim();
-            if (val.startsWith("/spawn @e ")) {
-                let type = val.split(" ")[2];
-                if (type === "enemies") enemies.push({ x: player.x, y: player.y - 500, angle: Math.PI, speed: 3.5, hp: 25, cooldown: 0, faction: 'red', id: Math.random() });
-                else if (type === "bandit") bandits.push({ x: player.x, y: player.y - 500, angle: Math.PI, speed: 4, hp: 75, cooldown: 0, faction: 'blue', id: Math.random() });
-                else if (type === "guard") guards.push({ x: player.x + 100, y: player.y - 500, hp: 100, angle: 0, faction: 'guard', id: Math.random() });
-            } else if (val.startsWith("/teleport @a [")) {
-                let distNum = parseFloat(val.substring(val.indexOf("[") + 1, val.indexOf("]")));
-                if (!isNaN(distNum)) { player.y = -(distNum * 10); player.x = 0; }
-            }
-            input.value = ""; input.blur();
-        }
-
-        //Music Engine//
-        function updateMusic() {
-            if (!audioUnlocked) return;
-            let target = { spaghetti: 0, action: 0, outlaw: 0, ballad: 0, bridge: 0, lobby: 0 };
-            if (screenState === "LOBBY") target.lobby = 0.9;
-            else if (screenState === "PLAYING" && !isPaused) {
-                if (isBridgeBattleMusic && !audio.bridge.ended) target.bridge = 0.8;
-                else {
-                    let hasE = enemies.some(e => Math.hypot(e.x - player.x, e.y - player.y) < 500);
-                    let hasB = bandits.some(b => Math.hypot(b.x - player.x, b.y - player.y) < 500);
-                    if (hasB) { target.outlaw = 0.8; if (!lastHasBandits) audio.outlaw.currentTime = 0; } 
-                    else if (hasE) { target.action = 0.8; if (!lastHasEnemies) audio.action.currentTime = 0; } 
-                    else target.spaghetti = 0.7;
-                    lastHasEnemies = hasE; lastHasBandits = hasB;
-                }
-            } else if (screenState === "END") target.ballad = 0.9;
-            for (let k in audio) fadeTrack(audio[k], target[k]);
-        }
-
-        function fadeTrack(track, target) {
-            let step = 0.01;
-            if (track.volume < target) { if(track.volume === 0) track.currentTime = 0; track.volume = Math.min(track.volume + step, target); }
-            else if (track.volume > target) track.volume = Math.max(track.volume - step, 0);
-        }
-
-        const keys = {};
-        window.addEventListener("keydown", e => { if(document.activeElement.id === "cmdInput") return; if(e.code==="Escape") isPaused = !isPaused; keys[e.code] = true; });
-        window.addEventListener("keyup", e => keys[e.code] = false);
-        window.addEventListener("blur", () => { for (let k in keys) keys[k] = false; }); // Ghost movement fix
-
-        function setupTouch(id, k) {
-            const el = document.getElementById(id);
-            el.addEventListener("pointerdown", e => { e.preventDefault(); keys[k] = true; });
-            el.addEventListener("pointerup", e => { e.preventDefault(); keys[k] = false; });
-        }
-        setupTouch("btnUp","KeyW"); setupTouch("btnDown","KeyS"); setupTouch("btnLeft","KeyA"); setupTouch("btnRight","KeyD"); 
-        setupTouch("btnShoot","Space"); setupTouch("btnE","KeyE"); setupTouch("btnF","KeyF"); setupTouch("btnG","KeyG");
-
-        function initWorld() {
-            buildings = []; outposts = []; guards = []; enemies = []; bandits = []; bullets = [];
-            crank.rotated = false; bridge.lowering = false; bridge.ready = false; bridge.time = 240; bridge.progress = 0;
-            const segments = [0, -30000, -60000, -90000];
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 2; j++) {
-                    let y = segments[i] - (Math.random() * 22000 + 4000);
-                    let side = Math.random() > 0.5 ? 450 : -450;
-                    buildings.push({ x: side, y: y, type: "BANK", looted: false, spawned: false });
-                    buildings.push({ x: side + (side > 0 ? 150 : -150), y: y + 300, type: "GUNSMITH_TOWN", looted: false, spawned: false });
-                }
-            }
-            segments.slice(1).forEach(y => {
-                outposts.push({ y, visited: false });
-                buildings.push({ x: -280, y: y - 100, type: "TRADING" }, { x: 280, y: y - 100, type: "GUNSMITH_OUT" });
-            });
-        }
-
-        function update() {
-            if (isPaused) return;
-            updateMusic();
-
-            if (screenState === "LOBBY") {
-                updateMovement(0.32);
-                document.getElementById('bondCount').innerText = infBonds ? "MAX" : player.bonds;
-                let near = false;
-                lobbyBuildings.forEach(b => {
-                    if (Math.abs(player.x - b.x) < b.w/2 + 50 && Math.abs(player.y - b.y) < b.h/2 + 50) {
-                        near = true;
-                        let el = document.getElementById('prompt');
-                        if (b.type === "GENERAL_STORE") {
-                            el.innerText = "METAL 5B [E] | WIRE 3B [F] | RADAR 10B [G]";
-                            if (keys["KeyE"] && (player.bonds >= 5 || infBonds) && !player.hasMetal) { if(!infBonds) player.bonds -= 5; player.hasMetal = true; player.metalHP = 100; saveProgress(); keys["KeyE"]=false; }
-                            if (keys["KeyF"] && (player.bonds >= 3 || infBonds) && !player.hasWire) { if(!infBonds) player.bonds -= 3; player.hasWire = true; player.wireHP = 50; saveProgress(); keys["KeyF"]=false; }
-                            if (keys["KeyG"] && (player.bonds >= 10 || infBonds) && !player.hasRadar) { if(!infBonds) player.bonds -= 10; player.hasRadar = true; saveProgress(); keys["KeyG"]=false; }
-                        } else if (b.type === "GUNSMITH_LOBBY") {
-                            el.innerText = "AMMO (10) 2B [E] | TURRET 10B [F] | T-AMMO (25) 5B [G]";
-                            if (keys["KeyE"] && (player.bonds >= 2 || infBonds)) { if(!infBonds) player.bonds -= 2; player.ammo += 10; saveProgress(); keys["KeyE"]=false; }
-                            if (keys["KeyF"] && (player.bonds >= 10 || infBonds) && !turret.active) { if(!infBonds) player.bonds -= 10; turret.active = true; turret.ammo = 50; saveProgress(); keys["KeyF"]=false; }
-                            if (keys["KeyG"] && (player.bonds >= 5 || infBonds) && turret.active) { if(!infBonds) player.bonds -= 5; turret.ammo += 25; saveProgress(); keys["KeyG"]=false; }
-                        } else if (b.type === "TELEPORTER") {
-                            el.innerText = "START DRIVE [E]";
-                            if (keys["KeyE"]) { startGame(); keys["KeyE"] = false; }
-                        }
-                    }
+            gameState = "DRIVE"; document.getElementById('hud').style.display='block';
+            player.x = 0; player.y = 0; player.speed = 0;
+            if(isHost) {
+                buildings = []; outposts = [];
+                [3000, 6000, 9000].forEach(d => {
+                    let y = -d * 100;
+                    outposts.push({y, gate: 0, visited: false});
+                    buildings.push({x:-450, y:y+300, type:'Trading', label:'TRADING POST'}, {x:450, y:y+300, type:'General', label:'GENERAL STORE'});
+                    buildings.push({x:-450, y:y+600, type:'GunOut', label:'GUNSMITH'}, {x:450, y:y+600, type:'Mechanic', label:'MECHANIC'});
                 });
-                document.getElementById('prompt').style.display = near ? "block" : "none";
-            } else if (screenState === "PLAYING" && gameActive) {
-                updateGame();
+                for(let i=0; i<15; i++) {
+                    let ry = -(Math.random()*850000 + 50000);
+                    buildings.push({x:-500, y:ry, type:'Bank', label:'BANK', looted:false}, {x:500, y:ry+500, type:'GunTown', label:'GUNSMITH', looted:false});
+                }
+                if(conn) conn.send({type:'start'});
             }
         }
 
-        function updateMovement(accel) {
-            if (keys["KeyA"]) player.angle -= 0.06;
-            if (keys["KeyD"]) player.angle += 0.06;
-            if (keys["KeyW"]) player.speed += accel;
-            if (keys["KeyS"]) player.speed -= accel;
-            player.speed *= 0.96;
+        function reviveTeam() {
+            if(player.scraps >= 75) { player.scraps -= 75; player.hp = 100; gameState = "DRIVE"; document.getElementById('deathScreen').style.display='none'; if(conn) conn.send({type:'revive'}); }
+        }
+
+        // --- UPDATE LOOP ---
+        function update() {
+            if(gameState === "START" || gameState === "DEAD") { updateAudio(); return; }
+
+            let ox = player.x, oy = player.y;
+            if(keys["KeyA"]) player.angle -= 0.05;
+            if(keys["KeyD"]) player.angle += 0.05;
+            // INCREASED SPEED AND ACCEL
+            if(keys["KeyW"]) player.speed += 0.85 * player.speedM;
+            if(keys["KeyS"]) player.speed -= 0.45;
+            player.speed *= 0.97;
             player.x += Math.sin(player.angle) * player.speed;
             player.y -= Math.cos(player.angle) * player.speed;
-        }
 
-        function updateGame() {
-            //Instant Water Death Check (Fixed hitbox)//
-            if (player.y < -99550 && player.y > -100500) {
-                let onBridge = bridge.ready && Math.abs(player.x) < 250;
-                if (!onBridge && !god) { triggerEnd("death"); return; }
-            }
-
-            updateMovement(fast ? 1.0 : 0.32);
-            let dist = Math.abs(player.y);
-            if (!isBridgeBattleMusic && dist > lastBanditSpawn + 2500) { if (Math.random() < 0.35) spawnBandits(player.x, player.y - 1200); lastBanditSpawn = dist; }
-            
-            if (keys["Space"] && (player.ammo > 0 || infAmmo) && player.cooldown <= 0) {
-                bullets.push({ x: player.x, y: player.y, angle: player.angle, speed: 28, owner: 'player', sourceId: 'p' });
-                if (!infAmmo) player.ammo--; player.cooldown = 12;
-            }
-            if (player.cooldown > 0) player.cooldown--;
-
-            if (turret.active && (turret.ammo > 0 || infAmmo)) {
-                let pool = [...enemies, ...bandits];
-                let nearest = pool.sort((a,b) => Math.hypot(player.x-a.x, player.y-a.y) - Math.hypot(player.x-b.x, player.y-b.y))[0];
-                if (nearest && Math.hypot(player.x - nearest.x, player.y - nearest.y) < 800) {
-                    turret.currentAngle = Math.atan2(nearest.x-player.x, -(nearest.y-player.y));
-                    if (turret.cooldown <= 0) {
-                        bullets.push({ x: player.x, y: player.y, angle: turret.currentAngle, speed: 28, owner: 'player', sourceId: 'p' });
-                        if (!infAmmo) turret.ammo--; turret.cooldown = 15;
-                    }
-                }
-                if (turret.cooldown > 0) turret.cooldown--;
-            }
-
-            buildings.forEach(b => {
-                let d = Math.hypot(player.x - b.x, player.y - b.y);
-                if (d < 1200 && (b.type === "BANK" || b.type === "GUNSMITH_TOWN") && !b.spawned) { spawnGroup(b.x, b.y); b.spawned = true; }
-                if (d < 220) {
-                    document.getElementById('prompt').style.display = 'block';
-                    let el = document.getElementById('prompt');
-                    if (b.type === "BANK" && !b.looted) { el.innerText = "ROB BANK [E]"; if (keys["KeyE"]) { player.bonds += 2; saveProgress(); player.gold++; b.looted = true; keys["KeyE"] = false; } }
-                    else if (b.type === "GUNSMITH_OUT") { 
-                        el.innerText = "AMMO $15 [E] | TURRET $100 [F] | T-AMMO $25 [G]";
-                        if (keys["KeyE"] && (player.money >= 15 || infCash)) { if (!infCash) player.money -= 15; player.ammo += 24; keys["KeyE"] = false; }
-                        if (keys["KeyF"] && (player.money >= 100 || infCash) && !turret.active) { if (!infCash) player.money -= 100; turret.active = true; turret.ammo = 50; keys["KeyF"] = false; }
-                        if (keys["KeyG"] && (player.money >= 25 || infCash) && turret.active) { if (!infCash) player.money -= 25; turret.ammo += 50; keys["KeyG"] = false; }
-                    }
-                }
-            });
+            // Borders
+            let lim = (gameState === "LOBBY") ? 600 : 2500;
+            if(Math.abs(player.x) > lim) player.x = ox;
+            if(gameState === "LOBBY" && (player.y > 50600 || player.y < 48500)) player.y = oy;
+            if(player.y < -995000 && Math.abs(player.x) > 400) player.x = ox;
 
             outposts.forEach(o => {
-                if (!o.visited && Math.hypot(player.x, player.y - o.y) < 600) {
-                    guards.push({ x: -150, y: o.y, hp: 100, angle: 0, faction: 'guard', id: Math.random() }, { x: 150, y: o.y, hp: 100, angle: 0, faction: 'guard', id: Math.random() });
+                if(Math.abs(player.y - o.y) < 100 && Math.abs(player.x) > 250 && o.gate < 1) player.y = oy;
+                if(isHost && !o.visited && Math.abs(player.y - o.y) < 800) {
+                    for(let i=0; i<4; i++) entities.push({x: i%2?200:-200, y: o.y-400, type:'guard', hp:150, speed:0, angle:0});
                     o.visited = true;
                 }
             });
 
-            if (Math.hypot(player.x - crank.x, player.y - crank.y) < 220 && !crank.rotated) {
-                document.getElementById('prompt').style.display = 'block'; document.getElementById('prompt').innerText = "ROTATE CRANK [E]";
-                if (keys["KeyE"]) { crank.rotated = true; bridge.lowering = true; isBridgeBattleMusic = true; audio.bridge.currentTime = 0; audio.bridge.play(); startBridgeSeq(); keys["KeyE"] = false; }
+            // Hazards (Massive Water)
+            if(player.y < -1000000 && player.y > -1015000) {
+                if(!(finale.timer < 120 && Math.abs(player.x) < 250) && !cheats.god) player.hp = 0;
             }
 
-            combatUpdate();
-
-            if (player.hp <= 0) triggerEnd("death");
-            if (bridge.ready && player.y < -100600) triggerEnd("win");
-            document.getElementById('money').innerText = infCash ? "MAX" : player.money;
-            document.getElementById('ammo').innerText = infAmmo ? "∞" : player.ammo;
-            document.getElementById('dist').innerText = Math.floor(dist / 10);
-        }
-
-        //Enemy logic//
-        function combatUpdate() {
-            enemies.forEach(e => {
-                let targets = [{x:player.x, y:player.y, hp:player.hp}, ...bandits, ...guards];
-                let t = targets.sort((a,b) => Math.hypot(e.x-a.x, e.y-a.y) - Math.hypot(e.x-b.x, e.y-b.y))[0];
-                if (t && Math.hypot(e.x-t.x, e.y-t.y) < 600) {
-                    e.angle = Math.atan2(t.x - e.x, -(t.y - e.y));
-                    e.x += Math.sin(e.angle) * e.speed; e.y -= Math.cos(e.angle) * e.speed;
-                    if (e.cooldown > 0) e.cooldown--;
-                    if (Math.hypot(e.x-t.x, e.y-t.y) < 75 && e.cooldown <= 0) { 
-                        if(t.x === player.x && t.y === player.y) {
-                            if (!god) {
-                                if (player.hasWire) { e.hp -= 25; player.wireHP -= 5; if(player.wireHP <= 0) player.hasWire = false; }
-                                player.hp -= 10;
-                            }
-                        } else if(t.hp) t.hp -= 10;
-                        e.cooldown = 120; 
+            // Interactions
+            let near = false;
+            buildings.forEach(b => {
+                if(Math.hypot(player.x-b.x, player.y-b.y) < 200) {
+                    near = true; let pr = document.getElementById('prompt'); pr.style.display='block';
+                    if(b.type === 'TELE') { pr.innerText = "START DRIVE [E]"; if(keys["KeyE"]) startGame(); }
+                    else if(b.type === 'L_STORE') {
+                        pr.innerText = "METAL 5S [E] | WIRE 3S [F] | RADAR 10S [G]";
+                        if(keys["KeyE"] && player.scraps >= 5) { player.armor='Sheet Metal'; player.armorHP=100; player.scraps-=5; keys["KeyE"]=false; }
+                    } else if(b.type === 'Mechanic') {
+                        pr.innerText = "UPGRADE HP [E] | SPD [F] | DMG [G] ($25)";
+                        if(keys["KeyE"] && player.money >= 25) { player.maxHp*=1.05; player.hp=player.maxHp; player.money-=25; keys["KeyE"]=false; }
+                    } else if(b.type === 'Bank' && !b.looted) {
+                        pr.innerText = "ROB BANK [E]"; if(keys["KeyE"]) { player.gold+=2; player.silver+=4; b.looted=true; keys["KeyE"]=false; }
+                    } else if(b.type === 'Trading') {
+                        pr.innerText = "SELL LOOT [E]"; if(keys["KeyE"]) { player.money += (player.gold*50+player.silver*25); player.gold=0; player.silver=0; keys["KeyE"]=false; }
                     }
                 }
             });
+            if(!near) document.getElementById('prompt').style.display='none';
 
-            bandits.forEach(b => {
-                let targets = [{x:player.x, y:player.y, hp:player.hp}, ...enemies, ...guards];
-                let t = targets.sort((a,b) => Math.hypot(b.x-a.x, b.y-a.y) - Math.hypot(b.x-b.x, b.y-b.y))[0];
-                if (t && Math.hypot(b.x-t.x, b.y-t.y) < 700) {
-                    b.angle = Math.atan2(t.x - b.x, -(t.y - b.y));
-                    b.x += Math.sin(b.angle) * b.speed; b.y -= Math.cos(b.angle) * b.speed;
-                    if (b.cooldown > 0) b.cooldown--;
-                    if (b.cooldown <= 0) { bullets.push({x:b.x, y:b.y, angle:b.angle, speed:22, owner:'bandit', sourceId: b.id }); b.cooldown = 80; }
-                }
-            });
+            // Finale Crank
+            if(Math.hypot(player.x - 350, player.y + 990000) < 150 && !finale.crank) {
+                document.getElementById('prompt').style.display = 'block'; document.getElementById('prompt').innerText = "START EVACUATION [E]";
+                if(keys["KeyE"]) { finale.active = true; finale.crank = true; document.getElementById('timer').style.display = 'block'; keys["KeyE"]=false; }
+            }
 
-            guards.forEach(g => {
-                let targets = [...enemies, ...bandits];
-                let t = targets.sort((a,b) => Math.hypot(g.x-a.x, g.y-a.y) - Math.hypot(g.x-b.x, g.y-b.y))[0];
-                if (t && Math.hypot(g.x-t.x, g.y-t.y) < 600) {
-                    g.angle = Math.atan2(t.x - g.x, -(t.y - g.y));
-                    if (Math.random() < 0.03) bullets.push({x:g.x, y:g.y, angle:g.angle, speed:24, owner:'player', sourceId: g.id});
-                }
-            });
+            // Combat
+            if(keys["Space"] && (player.ammo > 0 || cheats.ammo) && player.cooldown <= 0) {
+                bullets.push({x:player.x, y:player.y, ang:player.angle, owner:'p', dmg:25*player.dmgM});
+                if(!cheats.ammo) player.ammo--; player.cooldown = 15;
+            }
+            player.cooldown--;
 
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i]; b.x += Math.sin(b.angle) * b.speed; b.y -= Math.cos(b.angle) * b.speed;
-                let hit = false;
-                
-                // Check player collision
-                if (b.owner === 'bandit' && Math.hypot(b.x-player.x, b.y-player.y) < 50) { 
-                    if(!god) {
-                        if (player.hasMetal) { player.metalHP -= 10; if(player.metalHP <= 0) player.hasMetal = false; }
-                        else player.hp -= 5;
+            if(isHost) {
+                if(finale.active) {
+                    finale.timer -= 1/60;
+                    if(finale.timer > 120) outposts.forEach(o => { if(o.y < -800000) o.gate = Math.min(1, (240-finale.timer)/120); });
+                    if(Date.now() > finale.lastS + 2500 && finale.spawned < 35) {
+                        spawnNPC(finale.spawned < 15 ? 'bandit' : 'zombie');
+                        finale.spawned++; finale.lastS = Date.now();
                     }
-                    hit = true; 
+                    if(finale.timer <= 0) gameState = "WIN";
                 }
-
-                // Check NPC collision (Only if bullet didn't come from same source)
-                [...enemies, ...bandits, ...guards].forEach(npc => {
-                    if (b.sourceId !== npc.id && Math.hypot(b.x-npc.x, b.y-npc.y) < 50) {
-                        if (b.owner === 'player' || (b.owner === 'bandit' && npc.faction !== 'blue')) {
-                            npc.hp -= 50; hit = true;
-                        }
-                    }
+                entities.forEach(e => {
+                    if(e.type === 'guard') return;
+                    let ang = Math.atan2(player.x-e.x, -(player.y-e.y)); e.angle = ang;
+                    e.x += Math.sin(ang)*e.speed; e.y -= Math.cos(ang)*e.speed;
+                    if(Math.hypot(player.x-e.x, player.y-e.y) < 75) player.hp -= 0.15;
                 });
-
-                if (hit || Math.abs(b.y - player.y) > 2000) bullets.splice(i,1);
             }
-            enemies = enemies.filter(e => e.hp > 0); bandits = bandits.filter(e => e.hp > 0); guards = guards.filter(g => g.hp > 0);
+
+            bullets.forEach((b,i) => {
+                b.x += Math.sin(b.ang)*22; b.y -= Math.cos(b.ang)*22;
+                entities.forEach(e => { if(Math.hypot(b.x-e.x, b.y-e.y) < 60) { e.hp -= b.dmg; bullets.splice(i,1); } });
+                if(Math.abs(b.y - player.y) > 3000) bullets.splice(i,1);
+            });
+
+            entities = entities.filter(e => e.hp > 0);
+            if(player.hp <= 0 && gameState !== "DEAD") { gameState = "DEAD"; triggerEnd(); }
+            
+            updateAudio();
+            document.getElementById('vMoney').innerText = player.money;
+            document.getElementById('vAmmo').innerText = player.ammo;
+            document.getElementById('vScrap').innerText = player.scraps;
+            document.getElementById('vDist').innerText = Math.floor(Math.abs(player.y)/100);
+
+            if(conn && conn.open) {
+                conn.send({type:'sync', id: peer.id, x: player.x, y: player.y, ang: player.angle, hp: player.hp, name: player.name});
+                if(isHost) conn.send({type:'world', entities, finale, buildings, outposts});
+            }
         }
 
-        function spawnGroup(x, y) { for(let i=0; i<7; i++) enemies.push({x:x+(Math.random()-0.5)*200, y:y+(Math.random()-0.5)*200, angle:Math.PI, speed:3.5, hp:25, cooldown:0, faction:'red', id: Math.random()}); }
-        function spawnBandits(x, y) { for(let i=0; i<2; i++) bandits.push({x:x+(Math.random()-0.5)*200, y:y+(Math.random()-0.5)*200, angle:Math.PI, speed:4, hp:75, cooldown:0, faction:'blue', id: Math.random()}); }
-
-        function startBridgeSeq() {
-            document.getElementById('timer-ui').style.display = 'block';
-            let t = setInterval(() => { if(isPaused) return; bridge.time--; bridge.progress = (240 - bridge.time) / 240;
-                let m = Math.floor(bridge.time / 60); let s = bridge.time % 60;
-                document.getElementById('timeLeft').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-                if (bridge.time > 50) { spawnTimer++; if (spawnTimer >= 5) {
-                    if (enemySpawnCount < 30) { enemies.push({x:player.x+(Math.random()-0.5)*400, y:player.y+1000, angle:0, speed:3.5, hp:25, cooldown:0, faction:'red', id: Math.random()}); enemySpawnCount++; }
-                    if (banditSpawnCount < 15) { bandits.push({x:player.x+(Math.random()-0.5)*400, y:player.y+1000, angle:0, speed:4, hp:75, cooldown:0, faction:'blue', id: Math.random()}); banditSpawnCount++; }
-                    spawnTimer = 0;
-                } }
-                if (bridge.time <= 0) { bridge.ready = true; document.getElementById('timeLeft').innerText = "0:00"; clearInterval(t); }
-            }, 1000);
-        }
-
-        function triggerEnd(type) {
-            gameActive = false; screenState = "END";
-            if (type === "win") { player.bonds += 5; saveProgress(); }
-            for (let k in audio) audio[k].volume = 0; audio.ballad.volume = 1.0; audio.ballad.currentTime = 0; audio.ballad.play();
-            const s = type === "death" ? document.getElementById('deathScreen') : document.getElementById('winScreen');
-            if (type === "death") s.querySelector('.finalDist').innerText = Math.floor(Math.abs(player.y) / 10);
-            s.style.display = 'flex';
-            let c = 25;
-            let timer = setInterval(() => { c--; s.querySelector('.count').innerText = c; if (c <= 0) { clearInterval(timer); location.reload(); } }, 1000);
+        // --- AUDIO ENGINE ---
+        function updateAudio() {
+            let t = {lobby:0, spag:0, action:0, outlaw:0, bridge:0, ballad:0};
+            if(gameState === "LOBBY") t.lobby = 0.8;
+            else if(gameState === "DRIVE") {
+                if(finale.active) t.bridge = 0.9;
+                else {
+                    let hB = entities.some(e=>e.type==='bandit'&&Math.hypot(e.x-player.x,e.y-player.y)<1200);
+                    let hZ = entities.some(e=>e.type==='zombie'&&Math.hypot(e.x-player.x,e.y-player.y)<1200);
+                    if(hB) { t.outlaw=0.8; if(lastBattleTrack !== 'outlaw') { snd.outlaw.currentTime = 0; snd.outlaw.play(); lastBattleTrack='outlaw'; } }
+                    else if(hZ) { t.action=0.8; if(lastBattleTrack !== 'action') { snd.action.currentTime = 0; snd.action.play(); lastBattleTrack='action'; } }
+                    else { t.spag=0.7; lastBattleTrack=null; }
+                }
+            } else t.ballad = 0.9;
+            for(let k in snd) { let s = snd[k]; if(s.volume < t[k]) s.volume = Math.min(s.volume+0.015, t[k]); else s.volume = Math.max(s.volume-0.015, 0); }
         }
 
         function draw() {
-            ctx.fillStyle = "#E3D292"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            let ox = canvas.width / 2 - player.x, oy = canvas.height / 2 - player.y;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.save(); ctx.translate(canvas.width/2, canvas.height/2); ctx.scale(zoom, zoom); ctx.translate(-player.x, -player.y);
 
-            if (screenState === "LOBBY") {
-                if (texRoad.complete) { for(let i = -10; i < 10; i++) ctx.drawImage(texRoad, ox - 300, oy + i * 600, 600, 600); }
-                lobbyBuildings.forEach(b => {
-                    ctx.fillStyle = "#8b4513"; ctx.fillRect(ox + b.x - b.w/2, oy + b.y - b.h/2, b.w, b.h);
-                    ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.textAlign = "center"; ctx.fillText(b.label, ox + b.x, oy + b.y);
-                });
-            } else {
-                if (texRoad.complete) { for (let i = 0; i < 200; i++) ctx.drawImage(texRoad, ox - 300, oy - i * 600, 600, 600); }
-                ctx.fillStyle = "#1a3a5a"; ctx.fillRect(ox - 2000, oy - 100500, 4000, 950); 
-                if (bridge.lowering) { ctx.fillStyle = "#444"; ctx.fillRect(ox - 280, oy - 100500, 560, 950 * bridge.progress); }
-                buildings.forEach(b => { 
-                    ctx.fillStyle = b.looted ? "#222" : (b.type === "BANK" ? "#ffd700" : "#555"); ctx.fillRect(ox + b.x - 50, oy + b.y - 50, 100, 100); 
-                    ctx.fillStyle = "white"; ctx.font = "bold 12px Arial"; ctx.textAlign = "center"; ctx.fillText(b.type, ox + b.x, oy + b.y - 60);
-                });
-                outposts.forEach(o => { ctx.strokeStyle = "#666"; ctx.lineWidth = 15; ctx.strokeRect(ox - 450, oy + o.y - 350, 900, 700); });
-                ctx.fillStyle = "#AAA"; ctx.fillRect(ox + crank.x - 30, oy + crank.y - 5, 60, 10);
+            ctx.fillStyle = "#333"; ctx.fillRect(-300, -1100000, 600, 2200000);
+            ctx.fillStyle = "#1a3a5a"; ctx.fillRect(-5000, -1015000, 10000, 1500);
+
+            buildings.forEach(b => {
+                ctx.fillStyle = (b.type==='Bank'?'#ffd700':'#8b4513'); ctx.fillRect(b.x-60, b.y-60, 120, 120);
+                ctx.fillStyle = "#fff"; ctx.font="20px Arial"; ctx.textAlign="center"; ctx.fillText(b.label, b.x, b.y-80);
+            });
+
+            outposts.forEach(o => { ctx.fillStyle = "#555"; ctx.fillRect(-2500, o.y-50, 2250, 100); ctx.fillRect(250, o.y-50, 2250, 100); });
+
+            if(finale.active) {
+                ctx.fillStyle = "#444"; ctx.fillRect(-280, -1015000, 560, 1500 * Math.max(0, (120-finale.timer)/120));
             }
 
-            if (player.hasRadar) {
-                [...enemies, ...bandits].forEach(e => {
-                    let dx = e.x - player.x, dy = e.y - player.y;
-                    let d = Math.hypot(dx, dy);
-                    if (d > 450 && d < 2500) {
-                        let ang = Math.atan2(dy, dx);
-                        ctx.save(); ctx.translate(canvas.width/2 + Math.cos(ang) * 150, canvas.height/2 + Math.sin(ang) * 150);
-                        ctx.rotate(ang + Math.PI/2); ctx.fillStyle = e.faction === 'red' ? "red" : "blue";
-                        ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(8, 6); ctx.lineTo(-8, 6); ctx.fill(); ctx.restore();
-                    }
-                });
-            }
-
-            renderCar(canvas.width / 2, canvas.height / 2, player.angle, "cyan", player.hp, true, 'player');
-            enemies.forEach(e => renderCar(ox + e.x, oy + e.y, e.angle, "#e74c3c", e.hp, false, 'red'));
-            bandits.forEach(b => renderCar(ox + b.x, oy + b.y, b.angle, "#2c3e50", b.hp, false, 'blue'));
-            guards.forEach(g => renderCar(ox + g.x, oy + g.y, g.angle, "#2ecc71", g.hp, false, 'guard'));
-            ctx.fillStyle = "yellow"; bullets.forEach(b => ctx.fillRect(ox + b.x, oy + b.y, 5, 5));
+            drawCar(player.x, player.y, player.angle, "cyan", player.name, player.hp, player.maxHp, player.armor, player.turret);
+            Object.values(remotePlayers).forEach(p => drawCar(p.x, p.y, p.ang, "orange", p.name, p.hp, 100, 'None', false));
+            entities.forEach(e => drawCar(e.x, e.y, e.angle, e.type==='zombie'?'green':(e.type==='guard'?'black':'blue'), "", e.hp, e.maxHp, 'None', false));
+            
+            ctx.fillStyle="yellow"; bullets.forEach(b=>ctx.fillRect(b.x-4, b.y-4, 8, 8));
+            ctx.restore(); update(); requestAnimationFrame(draw);
         }
 
-        function renderCar(sx, sy, ang, col, hp, isP, faction) {
-            ctx.save(); ctx.translate(sx, sy); ctx.rotate(ang); 
-            if (isP && player.hasMetal) { ctx.fillStyle = "#777"; ctx.fillRect(-30, -55, 60, 110); }
-            ctx.fillStyle = col; ctx.fillRect(-25, -50, 50, 100);
-            if (isP && player.hasWire) { ctx.strokeStyle = "#333"; ctx.lineWidth = 4; ctx.setLineDash([5, 5]); ctx.strokeRect(-33, -58, 66, 116); ctx.setLineDash([]); }
-            ctx.fillStyle = faction === 'red' ? "rgba(255,0,0,0.7)" : "rgba(255,255,255,0.4)"; ctx.fillRect(-20, -35, 40, 20);
-            if (isP && turret.active) {
-                ctx.save(); ctx.rotate(turret.currentAngle - ang);
-                ctx.fillStyle = "cyan"; ctx.fillRect(-12, -12, 24, 24);
-                ctx.fillStyle = "white"; ctx.fillRect(-3, -25, 6, 20);
-                ctx.restore();
-            }
+        function drawCar(x, y, ang, col, name, hp, mhp, arm, tur) {
+            ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+            ctx.fillStyle = col; ctx.fillRect(-30, -60, 60, 120);
+            ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fillRect(-25, -45, 50, 18);
+            if(arm === 'Sheet Metal') { ctx.fillStyle = "#7f8c8d"; ctx.fillRect(-35, -65, 10, 130); ctx.fillRect(25, -65, 10, 130); }
+            if(arm === 'Barbed Wire') { ctx.strokeStyle = "#34495e"; ctx.lineWidth = 3; ctx.strokeRect(-38, -68, 76, 136); }
+            if(tur) { ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(0, 0, 18, 0, 7); ctx.fill(); ctx.fillStyle="#444"; ctx.fillRect(-5,-35,10,35); }
             ctx.restore();
-            ctx.fillStyle = hp > 30 ? "lime" : "red"; 
-            let maxHp = faction === 'red' ? 25 : (faction === 'blue' ? 75 : 100);
-            ctx.fillRect(sx - 30, sy - 75, (Math.max(0, hp) / maxHp) * 60, 6);
+            
+            ctx.fillStyle = "#fff"; ctx.font="bold 22px Arial"; ctx.textAlign="center"; ctx.fillText(name, x, y-100);
+            ctx.fillStyle = "#000"; ctx.fillRect(x-50, y-90, 100, 10);
+            ctx.fillStyle = hp > 30 ? "#0f0" : "#f00"; ctx.fillRect(x-50, y-90, (hp/mhp)*100, 10);
         }
 
-        function showPinBox() { document.getElementById('pinBox').style.display='block'; }
-        function checkPin() { if (document.getElementById('pinField').value === "3893") { document.getElementById('adminPanel').style.display='block'; document.getElementById('pinBox').style.display='none'; } else alert("WRONG PIN"); }
-        document.getElementById('admGod').onclick = function() { god = !god; this.classList.toggle('active'); };
-        document.getElementById('admBonds').onclick = function() { infBonds = !infBonds; this.classList.toggle('active'); };
-        document.getElementById('admCash').onclick = function() { infCash = !infCash; this.classList.toggle('active'); };
-        document.getElementById('admAmmo').onclick = function() { infAmmo = !infAmmo; this.classList.toggle('active'); };
-        document.getElementById('admSpeed').onclick = function() { fast = !fast; this.classList.toggle('active'); };
-        function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
+        const keys = {};
+        window.onkeydown = e => { if(document.activeElement.tagName !== 'INPUT') keys[e.code] = true; };
+        window.onkeyup = e => keys[e.code] = false;
+        function spawnNPC(t) { entities.push({x:player.x+(Math.random()*800-400), y:player.y-1200, type:t, hp:t==='zombie'?75:100, maxHp:t==='zombie'?75:100, speed:t==='zombie'?3.5:4.5, angle:0}); }
+        function triggerEnd() { let s = (gameState === "WIN") ? document.getElementById('winScreen') : document.getElementById('deathScreen'); s.style.display='flex'; if(gameState==="DEAD") document.getElementById('deathDist').innerText=Math.floor(Math.abs(player.y)/100); }
+        function addChatLine(n, m) { let l = document.getElementById('chatLines'); l.innerHTML += `<div><b>${n}:</b> ${m}</div>`; l.scrollTop = l.scrollHeight; }
+        function sendChat() { let i = document.getElementById('chatIn'); if(i.value) { addChatLine(player.name, i.value); if(conn) conn.send({type:'chat', name:player.name, msg:i.value}); i.value=""; } }
+        function toggleChat() { let b = document.getElementById('chatBox'); b.style.display = b.style.display==='none'?'flex':'none'; }
+        function openConsole() { document.getElementById('cmdBox').style.display='block'; document.getElementById('cmdInput').focus(); }
+
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight; draw();
     </script>
 </body>
 </html>
